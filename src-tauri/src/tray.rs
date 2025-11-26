@@ -4,6 +4,7 @@ use tauri::{
     tray::{TrayIconBuilder,TrayIconEvent,MouseButton,MouseButtonState},
 };
 
+//トレイアイコンの初期設定
 pub fn setup_tray_icon(app:&App)->Result<()>{
     let show=MenuItem::with_id(app,"show","ウインドウを表示",true,None::<&str>)?;
     let quit=MenuItem::with_id(app,"quit","終了",true,None::<&str>)?;
@@ -11,6 +12,7 @@ pub fn setup_tray_icon(app:&App)->Result<()>{
 
     TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
+        .tooltip("画像バックアップアプリ")
         .menu(&menu)
         .on_menu_event(on_menu_event)
         .on_tray_icon_event(on_tray_icon_event)
@@ -20,10 +22,11 @@ pub fn setup_tray_icon(app:&App)->Result<()>{
 
 }
 
+//メニュー選択時のイベント
 fn on_menu_event(app:&AppHandle,event: tauri::menu::MenuEvent){
     match event.id().as_ref(){
         "show"=>{
-            if let Some(window)=ap.get_webview_window("main"){
+            if let Some(window)=app.get_webview_window("main"){
                 let _ =window.show();
                 let _ =window.set_focus();
             }
@@ -35,6 +38,7 @@ fn on_menu_event(app:&AppHandle,event: tauri::menu::MenuEvent){
     }
 }
 
+//アイコンクリック時のイベント
 fn on_tray_icon_event(tray: &tauri::tray::TrayIcon, event:TrayIconEvent){
     if let TrayIconEvent::Click{button:MouseButton::Left,button_state:MouseButtonState::Up,..}=event{
         if let Some(app)=tray.app_handle().get_webview_window("main"){

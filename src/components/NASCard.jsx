@@ -1,0 +1,140 @@
+import React, { useState } from "react";
+import { ChevronDown, CheckCircle, XCircle, Wifi, Play, Square, Cog, Trash2,Circle, CircleOff } from "lucide-react";
+
+/**
+ * 個別のNASカードコンポーネント
+ * @param {Object} props
+ * @param {Object} props.nas - NAS情報
+ * @param {Object} props.config - ソケット情報
+ */
+export default function NASCard({nas}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const isConnected = nas.is_connected === true;
+
+  return (
+    <div className={isExpanded ? "bg-sky-100 rounded-lg mb-2 overflow-hidden shadow-md":"bg-sky-200 rounded-lg mb-2 overflow-hidden shadow-md"}>
+      {/* カードヘッダー（常に表示） */}
+      <div className="w-full p-4 flex items-center gap-3">
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex-1 flex items-center gap-3 hover:bg-gray-750 transition-colors rounded p-2 -m-2"
+        >
+          <Wifi className={isConnected ? "text-blue-600" : "text-gray-500"} size={24} />
+          <div className="flex-1 text-left">
+            <h3 className="text-lg font-semibold text-black text-mono">{nas.name}</h3>
+          </div>
+          <span
+            className={`flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${
+              isConnected
+                ? "bg-green-900/20 text-green-700"
+                : "bg-red-900/20 text-red-600"
+            }`}
+          >
+            {isConnected ? (
+              <>
+                <CheckCircle size={16} />
+                接続中
+              </>
+            ) : (
+              <>
+                <XCircle size={16} />
+                接続できません
+              </>
+            )}
+          </span>
+          <ChevronDown
+            className={`text-gray-400 transition-transform ${
+              isExpanded ? "rotate-180" : ""
+            }`}
+            size={20}
+          />
+        </button>
+
+        {/* 接続/切断ボタン */}
+        {isConnected ? (
+          <button
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            <CircleOff size={16} />
+            未使用
+          </button>
+        ) : (
+          <button
+            disabled={isConnecting}
+            className={`flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors ${
+              isConnecting ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+          >
+            <Circle size={16} />
+            {isConnecting ? "変更中..." : "使用"}
+          </button>
+        )}
+      </div>
+
+      {/* 展開時の詳細情報 */}
+      {isExpanded && (
+        <div className="px-4 pb-4 border-t">
+          <div className="pt-4 space-y-4">
+            <div>
+              <p className="text-sm text-gray-400 mb-1">IPアドレス</p>
+              <p className="text-black font-mono">{nas.ip}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">ネットワークドライブ</p>
+              <p className="text-black font-mono">{nas.drive}\:</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">最終ファイル更新時刻</p>
+              <p className="text-black">{nas.lastReceived}</p>
+            </div>
+
+            <div className="border-t border-gray-700 pt-4">
+              <p className="text-sm text-gray-400 mb-2">ログ</p>
+              {nas.data ? (
+                <div className="bg-gray-900 p-3 rounded border border-gray-700">
+                  <pre className="text-sm text-green-400 font-mono overflow-y-auto max-h-20 whitespace-pre-wrap break-all">
+                    {JSON.stringify(nas.data, null, 2)}
+                  </pre>
+                </div>
+              ) : (
+                <p className="text-gray-500 italic">データなし</p>
+              )}
+            </div>
+            {/* 情報編集ボタン */}
+            <div className="border-t border-gray-700 pt-4">
+              <button
+                disabled={isConnected}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
+                  isConnected
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-green-700 hover:bg-green-600 text-white"
+                }`}
+              >
+                <Cog size={16} />
+                {isConnected ? "接続中は編集できません" : "このNAS情報を編集"}
+              </button>
+            </div>
+
+            {/* 削除ボタン */}
+            <div className="border-t border-gray-700 pt-4">
+              <button
+                disabled={isConnected}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
+                  isConnected
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-red-700 hover:bg-red-600 text-white"
+                }`}
+              >
+                <Trash2 size={16} />
+                {isConnected ? "接続中は削除できません" : "このNASを削除"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
