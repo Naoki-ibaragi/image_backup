@@ -5,14 +5,17 @@ import { X, Plus } from "lucide-react";
 import NASCard from "./NASCard";
 import INSPCard from "./INSPCard";
 import Settings from "./Settings";
-import { listen } from '@tauri-apps/api/event';
+import { useInitListener } from "../listener/Listener";
+import { useNASContext } from "../contexts/NASContext";
 
 export default function StackCard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [nasList, setNasList] = useState([]); //LAN上のNAS一覧
-    const [inspList, setInspList] = useState([]); //LAN上の外観検査機一覧
+    const { nasList, setNasList, inspList, setInspList } = useNASContext(); // グローバルなNAS・外観検査機一覧
     const [tab,setTab]=useState("NAS");
+
+    // リスナーを初期化
+    useInitListener();
 
     // アプリ起動時にNAS設定を読み込む
     useEffect(() => {
@@ -30,9 +33,9 @@ export default function StackCard() {
                     now_target: false,                      //現在転送先の対象か
                     next_target: false,                     //次に転送先の対象になるか
                     is_connected: config.is_connected,      //認識できているか
-                    is_transofer: config.is_transfer,       //転送実施中かどうか
+                    is_use: config.is_use,       //転送実施中かどうか
                     total_space: config.total_space,        //NASの全容量
-                    current_space: config.current_space,    //NASの現在の容量
+                    used_space: config.used_space,    //NASの現在の容量
                     free_space: config.free_space,          //NASの現在の空容量
                     lastReceived: "-",
                     data: null,
@@ -45,7 +48,6 @@ export default function StackCard() {
                     ip: config.insp_ip,
                     drive: config.drive,
                     is_backup: config.is_backup,            //転送実施するかどうか
-                    is_transfer:false,                      //転送中かどうか
                     lastBackuped: "-",
                 }));
                 setInspList(InspFormattedData);
@@ -58,72 +60,9 @@ export default function StackCard() {
             }
         };
 
-        // listenハンドラの立上
-        const openListener = async () => {
-        try {
-            const unlistenMessage = await listen('nas-message', (event) => {
-            const { nas_id, message, timestamp } = event.payload;
-
-            // nullや空データの場合は更新しない(切断時に無効なデータが送られてくる場合があるため)
-            if (!message || message === "" || (typeof message === 'object' && Object.keys(message).length === 0)) {
-                console.log(`NAS ${nas_id}: 空またはnullのデータを受信したためスキップ`);
-                return;
-            }
-
-            //対象のnas_idのnasListのlastReceivedをmessageで更新
-            setNasList((prev) =>
-                prev.map((p) =>
-                p.id === nas_id
-                    ? { ...p, lastReceived: timestamp, data:message }
-                    : p
-                )
-            );
-            });
-
-            const unlistenDisconnect = await listen('nas-disconnected', (event) => {
-            const { nas_id, reason } = event.payload;
-            console.log(`NAS ${nas_id} disconnected: ${reason}`);
-
-            // 対象のNASの接続状態を切断に更新(最終受信データと時刻は保持)
-            setNasList((prev) =>
-                prev.map((p) =>
-                p.id === nas_id
-                    ? { ...p,is_connected: false }
-                    : p
-                )
-            );
-
-            //切断されたNASが
-            });
-
-            return () => {
-            unlistenMessage();
-            unlistenDisconnect();
-            };
-        } catch (err) {
-            console.error("Failed to setup listener:", err);
-            setError(err);
-            setLoading(false);
-            return null;
-        }
-        }
-
         //Nasの初期設定実施
         loadNasConfig();
-        
-        // クリーンアップ関数を返す
-        let unlistenFn;
-        openListener().then(fn => {
-        unlistenFn = fn;
-        });
-
-        return () => {
-            // コンポーネントのアンマウント時にリスナーを解除
-            if (unlistenFn) {
-                unlistenFn();
-            }
-        };
-    }, []);
+    }, []); // 初回マウント時のみ実行
 
     const hideWindow = async () => {
         try {

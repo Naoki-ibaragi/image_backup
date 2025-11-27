@@ -67,7 +67,7 @@ export default function NASCard({nas}) {
             }`}
           >
             <Circle size={16} />
-            {isConnecting ? "変更中..." : "使用"}
+            {isConnecting ? "変更中..." : "使用中"}
           </button>
         )}
       </div>
@@ -84,6 +84,11 @@ export default function NASCard({nas}) {
             <div>
               <p className="text-sm text-gray-400 mb-1">ネットワークドライブ</p>
               <p className="text-black font-mono">{nas.drive}\:</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">容量</p>
+              <p className="text-black font-mono">{nas.used_space}/{nas.total_space}</p>
             </div>
 
             <div>

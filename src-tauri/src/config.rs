@@ -1,10 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::command;
-use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs};
 use serde_json::Value;
 
-/// config.jsonを読み込んでNAS,INSP設定情報をフロントエンドに渡す
+//独自クレートのimport
+use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs};
+use crate::app_monitor::{check_nas_connection};
+
+/// 設定ファイルの読み込みで初期化
 #[command]
 pub async fn init_info() -> Result<Configs, String> {
     // 実行ファイルのディレクトリからconfig.jsonを読み込む
@@ -36,12 +39,12 @@ pub async fn init_info() -> Result<Configs, String> {
             id: data.id,
             name: data.name,
             drive: data.drive,
-            nas_ip: data.nas_ip,
+            nas_ip: data.nas_ip.clone(),
             total_space: 0,
             used_space: 0,
             free_space: 0,
             is_use: true,        //このNASを使用するかどうか(NASに接続できていてもここがfalseだと使用しない)
-            is_connected: false, //NASに接続できているか
+            is_connected: check_nas_connection(&data.nas_ip), //NASに接続できているか
         };
 
         nas_configs.push(nas_config);

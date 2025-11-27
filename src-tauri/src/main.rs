@@ -60,44 +60,6 @@ fn main() {
                     // 監視スレッドを開始
                     app_monitor.start_monitoring(app_handle.clone());
 
-                    let mut a: Option<u32>;
-                    let mut b: Option<u32>;
-                    let mut c: Option<u32>;
-                    let mut d: Option<u32>;
-
-                    match app_monitor.nas_configs.len(){
-                        2 => {
-                            a = Some(1);
-                            b = Some(2);
-                        }
-                        1 => {
-                            a = Some(1);
-                            b = None;
-                        }
-                        _ => {
-                            a = None;
-                            b = None;
-                        }
-                    }
-
-                    match app_monitor.insp_configs.len(){
-                        2 => {
-                            c = Some(1);
-                            d = Some(2);
-                        }
-                        1 => {
-                            c = Some(1);
-                            d = None;
-                        }
-                        _ => {
-                            c = None;
-                            d = None;
-                        }
-                    }
-
-                    let transfer_state = TransferState::new(a,b,c,d);
-                    app_handle.manage(transfer_state);
-
                     println!("Application monitoring started successfully");
                 }
                 Err(e) => {

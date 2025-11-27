@@ -1,12 +1,13 @@
-import { useState } from "react";
 import StackCard from "./components/StackCard";
+import { NASProvider } from "./contexts/NASContext";
 
 function App() {
-
   return (
-    <div>
-      <StackCard></StackCard>
-    </div>
+    <NASProvider>
+      <div>
+        <StackCard></StackCard>
+      </div>
+    </NASProvider>
   );
 }
 

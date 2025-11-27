@@ -13,14 +13,34 @@ use crate::types::{NasConfig, InspConfig};
 pub struct AppMonitor {
     pub nas_configs: Arc<RwLock<Vec<NasConfig>>>,
     pub insp_configs: Arc<RwLock<Vec<InspConfig>>>,
+    pub enable_nas_list: Arc<RwLock<Vec<u32>>>,
+    pub enable_insp_list: Arc<RwLock<Vec<u32>>>,
 }
 
 impl AppMonitor {
     /// 新しいAppMonitorインスタンスを作成
     pub fn new(nas_configs: Vec<NasConfig>, insp_configs: Vec<InspConfig>) -> Self {
+        let mut enable_nas_list:Vec<u32>=vec![];
+        let mut enable_insp_list:Vec<u32>=vec![];
+        //nas_configsから接続可能なnasのリストを取得する
+        for nas_config in &nas_configs{
+            if nas_config.is_connected==true {
+                enable_nas_list.push(nas_config.id);
+            }
+        }
+
+        //insp_configsから外観機器のリストを取得する
+        for insp_config in &insp_configs{
+            if insp_config.is_backup==true {
+                enable_insp_list.push(insp_config.id);
+            }
+        }
+
         Self {
             nas_configs: Arc::new(RwLock::new(nas_configs)),
             insp_configs: Arc::new(RwLock::new(insp_configs)),
+            enable_nas_list:Arc::new(RwLock::new(enable_nas_list)),
+            enable_insp_list:Arc::new(RwLock::new(enable_insp_list)),
         }
     }
 
@@ -37,21 +57,12 @@ impl AppMonitor {
                     eprintln!("Failed to update NAS status: {}", e);
                 }
 
-                // 検査機器の状態を更新
-                if let Err(e) = self.update_insp_status().await {
-                    eprintln!("Failed to update inspection device status: {}", e);
-                }
-
                 // フロントエンドに更新を通知
                 let nas_configs = self.nas_configs.read().await;
                 if let Err(e) = app_handle.emit("nas-status-updated", nas_configs.clone()) {
                     eprintln!("Failed to emit nas-status-updated event: {}", e);
                 }
 
-                let insp_configs = self.insp_configs.read().await;
-                if let Err(e) = app_handle.emit("insp-status-updated", insp_configs.clone()) {
-                    eprintln!("Failed to emit insp-status-updated event: {}", e);
-                }
             }
         });
     }
@@ -84,25 +95,6 @@ impl AppMonitor {
         Ok(())
     }
 
-    /// すべての検査機器の状態を更新
-    async fn update_insp_status(&self) -> Result<(), String> {
-        let mut configs = self.insp_configs.write().await;
-
-        for config in configs.iter_mut() {
-            // 検査機器への接続チェック（ポート番号は適宜調整してください）
-            // ここでは仮に445ポートを使用していますが、実際の検査機器のポートに変更してください
-            let is_connected = check_device_connection(&config.insp_ip);
-
-            // 接続状態に応じてバックアップフラグを更新
-            // 切断されている場合は自動的にバックアップを停止
-            if !is_connected && config.is_backup {
-                println!("Warning: Inspection device {} is disconnected", config.name);
-            }
-        }
-
-        Ok(())
-    }
-
     /// 現在のNAS設定を取得
     pub async fn get_nas_configs(&self) -> Vec<NasConfig> {
         self.nas_configs.read().await.clone()
@@ -115,12 +107,12 @@ impl AppMonitor {
 }
 
 /// NASへの接続をチェック（SMBポート445へのTCP接続を試行）
-fn check_nas_connection(nas_ip: &str) -> bool {
+pub fn check_nas_connection(nas_ip: &str) -> bool {
     let address = format!("{}:445", nas_ip);
 
     match TcpStream::connect_timeout(
         &address.parse().unwrap(),
-        StdDuration::from_secs(3)
+        StdDuration::from_secs(1)
     ) {
         Ok(_) => true,
         Err(_) => false,
@@ -151,9 +143,7 @@ struct DriveSpaceInfo {
 
 /// ドライブの容量情報を取得
 fn get_drive_space_info(drive_letter: &str) -> Result<DriveSpaceInfo, String> {
-    let disks = Disks::new_with_refreshed_list();
-
-    // ドライブレターを正規化（例: "Z:" -> "Z:\\"）
+    // ドライブレターを正規化（例: "P:" -> "P:\\"）
     let drive_path = if drive_letter.ends_with(":\\") {
         drive_letter.to_string()
     } else if drive_letter.ends_with(":") {
@@ -162,24 +152,71 @@ fn get_drive_space_info(drive_letter: &str) -> Result<DriveSpaceInfo, String> {
         format!("{}:\\", drive_letter)
     };
 
-    for disk in &disks {
-        let mount_point = disk.mount_point().to_string_lossy();
-
-        if mount_point.to_uppercase() == drive_path.to_uppercase() {
-            let total = disk.total_space();
-            let free = disk.available_space();
-            let used = total.saturating_sub(free);
-
-            return Ok(DriveSpaceInfo {
-                total,
-                used,
-                free,
-            });
-        }
+    // Windows用の実装
+    #[cfg(windows)]
+    {
+        get_drive_space_info_windows(&drive_path)
     }
 
-    Err(format!("Drive {} not found", drive_path))
+    // Windows以外の場合はsysinfoを使用
+    #[cfg(not(windows))]
+    {
+        let disks = Disks::new_with_refreshed_list();
+
+        for disk in &disks {
+            let mount_point = disk.mount_point().to_string_lossy();
+
+            if mount_point.to_uppercase() == drive_path.to_uppercase() {
+                let total = disk.total_space();
+                let free = disk.available_space();
+                let used = total.saturating_sub(free);
+
+                return Ok(DriveSpaceInfo {
+                    total,
+                    used,
+                    free,
+                });
+            }
+        }
+
+        Err(format!("Drive {} not found", drive_path))
+    }
 }
 
-#[command]
-fn get_transfer_info(transfer_info:)
+/// Windows専用: Win32 APIを使用してドライブ容量を取得（ネットワークドライブ対応）
+#[cfg(windows)]
+fn get_drive_space_info_windows(drive_path: &str) -> Result<DriveSpaceInfo, String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+
+    // drive_pathを"P:\\"のような形式にする
+    let path: Vec<u16> = drive_path.encode_utf16().chain(std::iter::once(0)).collect();
+
+    unsafe {
+        let mut free_bytes_available: u64 = 0;
+        let mut total_bytes: u64 = 0;
+        let mut total_free_bytes: u64 = 0;
+
+        let result = GetDiskFreeSpaceExW(
+            PCWSTR(path.as_ptr()),
+            Some(&mut free_bytes_available as *mut u64 as *mut _),
+            Some(&mut total_bytes as *mut u64 as *mut _),
+            Some(&mut total_free_bytes as *mut u64 as *mut _),
+        );
+
+        if result.is_ok() {
+            let used = total_bytes.saturating_sub(total_free_bytes);
+
+            println!("Drive {} - Total: {} bytes, Free: {} bytes, Used: {} bytes",
+                     drive_path, total_bytes, total_free_bytes, used);
+
+            Ok(DriveSpaceInfo {
+                total: total_bytes,
+                used,
+                free: total_free_bytes,
+            })
+        } else {
+            Err(format!("Failed to get disk space info for drive {}", drive_path))
+        }
+    }
+}
