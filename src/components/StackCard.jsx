@@ -4,15 +4,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { X, Plus } from "lucide-react";
 import NASCard from "./NASCard";
 import INSPCard from "./INSPCard";
+import Settings from "./Settings";
 import { listen } from '@tauri-apps/api/event';
 
 export default function StackCard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [nasList, setNasList] = useState([]); //LAN上のNAS一覧
-    const [nasConfigs, setNasConfigs] = useState([]); // 元の設定データを保持
     const [inspList, setInspList] = useState([]); //LAN上の外観検査機一覧
-    const [inspConfigs, setInspConfigs] = useState([]); // 元の設定データを保持
     const [tab,setTab]=useState("NAS");
 
     // アプリ起動時にNAS設定を読み込む
@@ -20,10 +19,10 @@ export default function StackCard() {
         const loadNasConfig = async () => {
             try {
                 //バックエンドからNAS・外観検査一覧情報を取得(アプリ起動時のみ)
-                const configs = await invoke("init_initial_info");
+                const configs = await invoke("init_info");
+                console.log("configs",configs);
 
-                setNasConfigs(configs[0]);
-                const NasFormattedData = configs[0].map((config) => ({
+                const NasFormattedData = configs.nas_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
                     ip: config.nas_ip,
@@ -40,8 +39,7 @@ export default function StackCard() {
                 }));
                 setNasList(NasFormattedData);
 
-                setInspConfigs(configs[1]);
-                const InspFormattedData = configs[1].map((config) => ({
+                const InspFormattedData = configs.insp_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
                     ip: config.insp_ip,
@@ -172,7 +170,7 @@ export default function StackCard() {
         <div className="min-h-screen text-white">
             <header className="bg-blue-700 shadow-lg">
                 <div className="flex items-center justify-between p-2">
-                    <h1 className="text-xl font-mono">Image Backup</h1>
+                    <h1 className="text-xl font-mono">Image Backup App</h1>
                     <button
                     onClick={hideWindow}
                     className="p-2 hover:bg-gray-700 rounded-full transition-colors"
@@ -197,7 +195,7 @@ export default function StackCard() {
             {/* ヘッダー */}
             <header className="bg-blue-700 shadow-lg">
                 <div className="flex items-center justify-between p-2">
-                <h1 className="text-2xl font-bold">Image Backup App</h1>
+                <h1 className="text-xl font-mono">Image Backup App</h1>
                 <div className="flex items-center gap-4">
                     <button
                     onClick={hideWindow}
@@ -312,7 +310,14 @@ export default function StackCard() {
                         </div>
                     </>
                 ) : (
-                    <></>
+                    <>
+                         <div className="flex items-center justify-between mb-4">
+                            <div className="flex gap-4">
+                                <h2 className="text-xl text-black font-semibold font-mono">各種設定</h2>
+                            </div>
+                        </div>
+                        <Settings></Settings>
+                    </>
                 )}
             </main>
 

@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::command;
-use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig};
+use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs};
 use serde_json::Value;
 
-/// config.jsonを読み込んでPLC設定情報をフロントエンドに渡す
+/// config.jsonを読み込んでNAS,INSP設定情報をフロントエンドに渡す
 #[command]
-pub async fn init_initial_info() -> Result<(Vec<NasConfig>,Vec<InspConfig>), String> {
+pub async fn init_info() -> Result<Configs, String> {
     // 実行ファイルのディレクトリからconfig.jsonを読み込む
     let config_path = get_config_path()?;
 
@@ -37,11 +37,11 @@ pub async fn init_initial_info() -> Result<(Vec<NasConfig>,Vec<InspConfig>), Str
             name: data.name,
             drive: data.drive,
             nas_ip: data.nas_ip,
-            is_transfer: false,
-            is_connected: false,
             total_space: 0,
-            current_space: 0,
-            free_space: 0
+            used_space: 0,
+            free_space: 0,
+            is_use: true,        //このNASを使用するかどうか(NASに接続できていてもここがfalseだと使用しない)
+            is_connected: false, //NASに接続できているか
         };
 
         nas_configs.push(nas_config);
@@ -57,15 +57,13 @@ pub async fn init_initial_info() -> Result<(Vec<NasConfig>,Vec<InspConfig>), Str
             surface_image_path:data.surface_image_path,
             back_image_path:data.back_image_path,
             result_path:data.result_path,
-            is_backup:true
+            is_backup:true, //バックアップを実施するかどうか
         };
 
         insp_configs.push(insp_config);
     }
 
-    println!("{:#?}",insp_configs);
-
-    Ok((nas_configs,insp_configs))
+    Ok(Configs{nas_configs:nas_configs,insp_configs:insp_configs})
 }
 
 fn get_config_path()->Result<PathBuf,String>{
@@ -103,6 +101,5 @@ fn get_config_path()->Result<PathBuf,String>{
         config_path.push("config.json");
         Ok(config_path)
     }
-
 
 }
