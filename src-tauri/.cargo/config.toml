@@ -1,0 +1,3 @@
+[build]
+# Tauri開発モードでconfig.jsonの変更を無視
+ignore = ["config.json"]

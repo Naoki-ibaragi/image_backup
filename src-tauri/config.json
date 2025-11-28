@@ -1,52 +1,58 @@
 {
+  "insp_units": {
+    "insps": [
+      {
+        "back_image_path": "/home/image",
+        "id": 1,
+        "insp_ip": "127.0.0.1",
+        "name": "CLT5",
+        "result_path": "/home/result",
+        "surface_image_path": "/home/image"
+      },
+      {
+        "back_image_path": "/home/image",
+        "id": 2,
+        "insp_ip": "127.0.0.1",
+        "name": "CLT6",
+        "result_path": "/home/result",
+        "surface_image_path": "/home/image"
+      },
+      {
+        "back_image_path": "/home/image",
+        "id": 3,
+        "insp_ip": "127.0.0.1",
+        "name": "CLT7",
+        "result_path": "/home/result",
+        "surface_image_path": "/home/image"
+      }
+    ]
+  },
   "nas_units": {
     "nass": [
       {
+        "drive": "P",
         "id": 1,
         "name": "NAS1",
-        "drive": "P",
         "nas_ip": "192.168.0.99"
       },
       {
+        "drive": "Q",
         "id": 2,
         "name": "NAS2",
-        "drive": "Q",
         "nas_ip": "192.168.0.51"
       },
       {
+        "drive": "R",
         "id": 3,
         "name": "NAS3",
-        "drive": "R",
         "nas_ip": "192.168.0.52"
       }
     ]
   },
-  "insp_units": {
-    "insps": [
-      {
-        "id": 1,
-        "name": "CLT5",
-        "insp_ip": "127.0.0.1",
-        "surface_image_path": "/home/image",
-        "back_image_path": "/home/image",
-        "result_path": "/home/result"
-      },
-      {
-        "id": 2,
-        "name": "CLT6",
-        "insp_ip": "127.0.0.1",
-        "surface_image_path": "/home/image",
-        "back_image_path": "/home/image",
-        "result_path": "/home/result"
-      },
-      {
-        "id": 3,
-        "name": "CLT7",
-        "insp_ip": "127.0.0.1",
-        "surface_image_path": "/home/image",
-        "back_image_path": "/home/image",
-        "result_path": "/home/result"
-      }
-    ]
+  "settings": {
+    "back_image_path": "/share/jpg/back",
+    "backup_time": "07:00",
+    "result_file_path": "/share/result",
+    "surface_image_path": "/share/jpg/surface"
   }
 }

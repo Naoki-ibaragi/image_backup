@@ -25,7 +25,7 @@ export default function StackCard() {
                 const configs = await invoke("init_info");
                 console.log("configs",configs);
 
-                const NasFormattedData = configs.nas_configs.map((config) => ({
+                const NasFormattedData = configs[0].nas_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
                     ip: config.nas_ip,
@@ -42,7 +42,7 @@ export default function StackCard() {
                 }));
                 setNasList(NasFormattedData);
 
-                const InspFormattedData = configs.insp_configs.map((config) => ({
+                const InspFormattedData = configs[0].insp_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
                     ip: config.insp_ip,

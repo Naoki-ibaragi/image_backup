@@ -1,15 +1,15 @@
 use std::fs;
 use std::path::PathBuf;
 use tauri::command;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 //独自クレートのimport
-use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs};
+use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig};
 use crate::app_monitor::{check_nas_connection};
 
 /// 設定ファイルの読み込みで初期化
 #[command]
-pub async fn init_info() -> Result<Configs, String> {
+pub async fn init_info() -> Result<(Configs,SettingsConfig), String> {
     // 実行ファイルのディレクトリからconfig.jsonを読み込む
     let config_path = get_config_path()?;
 
@@ -31,6 +31,9 @@ pub async fn init_info() -> Result<Configs, String> {
     //insp情報を取得
     let insp_info: InspInfos = serde_json::from_value(value["insp_units"].clone())
     .map_err(|e| format!("Failed to parse nas_units: {}", e))?;
+
+    let settings_info: SettingsConfig = serde_json::from_value(value["settings"].clone())
+    .map_err(|e| format!("Failed to parse settings: {}", e))?;
 
     //各NAS情報を追加
     let mut nas_configs = vec![];
@@ -66,7 +69,39 @@ pub async fn init_info() -> Result<Configs, String> {
         insp_configs.push(insp_config);
     }
 
-    Ok(Configs{nas_configs:nas_configs,insp_configs:insp_configs})
+    Ok((Configs{nas_configs:nas_configs,insp_configs:insp_configs},settings_info))
+}
+
+/// 設定をconfig.jsonに保存
+#[command]
+pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
+    let config_path = get_config_path()?;
+
+    // 既存のconfig.jsonを読み込む
+    let config_content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+
+    // JSONとしてパース
+    let mut value: Value = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+
+    // settings部分を更新
+    value["settings"] = json!({
+        "backup_time": settings.backup_time,
+        "surface_image_path": settings.surface_image_path,
+        "back_image_path": settings.back_image_path,
+        "result_file_path": settings.result_file_path,
+    });
+
+    // ファイルに書き込む（インデント付き）
+    let updated_content = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    fs::write(&config_path, updated_content)
+        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+
+    println!("Settings saved successfully to {:?}", config_path);
+    Ok(())
 }
 
 fn get_config_path()->Result<PathBuf,String>{

@@ -69,22 +69,42 @@ pub struct InspConfig {
 }
 
 /* ----------------------------- */
-
-/* nas、外観検査の転送状況を表示 */
-pub struct TransferState{
-    pub nas_id_current:Arc<RwLock<Option<u32>>>, //現在使用中のnas
-    pub insp_id_current:Arc<RwLock<Option<u32>>>, //次に使用予定のnas
-    pub nas_id_next:Arc<RwLock<Option<u32>>>, //現在バックアップ中の外観検査
-    pub insp_id_next:Arc<RwLock<Option<u32>>>, //次にバックアップ予定の外観検査
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SettingsConfig{
+    pub backup_time:String,
+    pub surface_image_path:String,
+    pub back_image_path:String,
+    pub result_file_path:String,
 }
 
-impl TransferState{
-    pub fn new(a:Option<u32>,b:Option<u32>,c:Option<u32>,d:Option<u32>)->Self{
-        Self { 
-            nas_id_current:Arc::new(RwLock::new(a)), 
-            nas_id_next:Arc::new(RwLock::new(b)), 
-            insp_id_current:Arc::new(RwLock::new(c)), 
-            insp_id_next:Arc::new(RwLock::new(d)), 
-        }
-    }
+/* バックアップ関連の型定義 */
+/// バックアップの状態
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BackupStatus {
+    pub is_running: bool,
+    pub last_backup_date: Option<String>,
+}
+
+/// バックアップの進捗情報
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BackupProgress {
+    pub current_files: u64,
+    pub total_files: u64,
+    pub current_size: u64,
+    pub total_size: u64,
+    pub percentage: f32,
+    pub current_file: String,
+    pub current_device: String,
+}
+
+/// バックアップの結果
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct BackupResult {
+    pub success: bool,
+    pub total_files: u64,
+    pub copied_files: u64,
+    pub failed_files: u64,
+    pub total_size_bytes: u64,
+    pub duration_secs: u64,
+    pub errors: Vec<String>,
 }

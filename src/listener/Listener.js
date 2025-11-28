@@ -35,6 +35,7 @@ export const useInitListener = () => {
                 });
 
                 // nas-status-updatedリスナー
+                // 10sに1回受信
                 unlistenNasStatus = await listen('nas-status-updated', (event) => {
                     const nas_configs = event.payload;
 

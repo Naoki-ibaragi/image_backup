@@ -12,6 +12,10 @@ export default function NASCard({nas}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnected = nas.is_connected === true;
 
+  const bytesToGB=(bytes)=>{
+    return (bytes/1024/1024/1024).toFixed(2);
+  }
+
   return (
     <div className={isExpanded ? "bg-sky-100 rounded-lg mb-2 overflow-hidden shadow-md":"bg-sky-200 rounded-lg mb-2 overflow-hidden shadow-md"}>
       {/* カードヘッダー（常に表示） */}
@@ -88,7 +92,29 @@ export default function NASCard({nas}) {
 
             <div>
               <p className="text-sm text-gray-400 mb-1">容量</p>
-              <p className="text-black font-mono">{nas.used_space}/{nas.total_space}</p>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-black font-mono text-sm">
+                    {bytesToGB(nas.used_space)} GB / {bytesToGB(nas.total_space)} GB
+                  </p>
+                  <p className="text-black font-semibold">
+                    {((nas.used_space / nas.total_space) * 100).toFixed(1)}%
+                  </p>
+                </div>
+                {/* プログレスバー */}
+                <div className="w-full bg-gray-300 rounded-full h-3 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      (nas.used_space / nas.total_space) * 100 > 90
+                        ? "bg-red-600"
+                        : (nas.used_space / nas.total_space) * 100 > 75
+                        ? "bg-yellow-500"
+                        : "bg-green-600"
+                    }`}
+                    style={{ width: `${(nas.used_space / nas.total_space) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
             </div>
 
             <div>
