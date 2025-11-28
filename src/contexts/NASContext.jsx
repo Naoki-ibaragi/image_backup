@@ -34,45 +34,98 @@ export const NASProvider = ({ children }) => {
   const [backupProgress, setBackupProgress] = useState(null)
   const [lastBackupDate, setLastBackupDate] = useState(null)
 
-  // バックアップイベントをリッスン
+  // すべてのイベントリスナーを統合
   useEffect(() => {
     let unlistenStarted, unlistenProgress, unlistenCompleted, unlistenFailed
+    let unlistenMessage, unlistenNasStatus
 
     const setupListeners = async () => {
-      // バックアップ開始
-      unlistenStarted = await listen('backup-started', (event) => {
-        console.log('Backup started:', event.payload)
-        setIsBackupRunning(true)
-        setBackupProgress(null)
-      })
+      try {
+        // NAS関連のリスナー
+        // nas-messageリスナー
+        unlistenMessage = await listen('nas-message', (event) => {
+          const { nas_id, message, timestamp } = event.payload;
 
-      // バックアップ進捗
-      unlistenProgress = await listen('backup-progress', (event) => {
-        console.log('Backup progress:', event.payload)
-        setBackupProgress(event.payload)
-      })
+          // nullや空データの場合は更新しない(切断時に無効なデータが送られてくる場合があるため)
+          if (!message || message === "" || (typeof message === 'object' && Object.keys(message).length === 0)) {
+            console.log(`NAS ${nas_id}: 空またはnullのデータを受信したためスキップ`);
+            return;
+          }
 
-      // バックアップ完了
-      unlistenCompleted = await listen('backup-completed', (event) => {
-        console.log('Backup completed:', event.payload)
-        setIsBackupRunning(false)
-        setBackupProgress(null)
-        setLastBackupDate(new Date().toISOString())
-      })
+          //対象のnas_idのnasListのlastReceivedをmessageで更新
+          setNasList((prev) =>
+            prev.map((p) =>
+              p.id === nas_id
+                ? { ...p, lastReceived: timestamp, data: message }
+                : p
+            )
+          );
+        });
 
-      // バックアップ失敗
-      unlistenFailed = await listen('backup-failed', (event) => {
-        console.error('Backup failed:', event.payload)
-        setIsBackupRunning(false)
-        setBackupProgress(null)
-        alert(`バックアップに失敗しました: ${event.payload}`)
-      })
+        // nas-status-updatedリスナー
+        // 10sに1回受信
+        unlistenNasStatus = await listen('nas-status-updated', (event) => {
+          const nas_configs = event.payload;
+
+          // nas_configsでnasListを更新
+          setNasList((prev) =>
+            prev.map((nas) => {
+              const updatedConfig = nas_configs.find(config => config.id === nas.id);
+              if (updatedConfig) {
+                return {
+                  ...nas,
+                  is_connected: updatedConfig.is_connected,
+                  is_use: updatedConfig.is_use,
+                  total_space: updatedConfig.total_space,
+                  used_space: updatedConfig.used_space,
+                  free_space: updatedConfig.free_space,
+                };
+              }
+              return nas;
+            })
+          );
+        });
+
+        // バックアップ関連のリスナー
+        // バックアップ開始
+        unlistenStarted = await listen('backup-started', (event) => {
+          console.log('Backup started:', event.payload)
+          setIsBackupRunning(true)
+          setBackupProgress(null)
+        })
+
+        // バックアップ進捗
+        unlistenProgress = await listen('backup-progress', (event) => {
+          console.log('Backup progress:', event.payload)
+          setBackupProgress(event.payload)
+        })
+
+        // バックアップ完了
+        unlistenCompleted = await listen('backup-completed', (event) => {
+          console.log('Backup completed:', event.payload)
+          setIsBackupRunning(false)
+          setBackupProgress(null)
+          setLastBackupDate(new Date().toISOString())
+        })
+
+        // バックアップ失敗
+        unlistenFailed = await listen('backup-failed', (event) => {
+          console.error('Backup failed:', event.payload)
+          setIsBackupRunning(false)
+          setBackupProgress(null)
+          alert(`バックアップに失敗しました: ${event.payload}`)
+        })
+      } catch (err) {
+        console.error("Failed to setup listener:", err);
+      }
     }
 
     setupListeners()
 
     return () => {
       // クリーンアップ
+      if (unlistenMessage) unlistenMessage()
+      if (unlistenNasStatus) unlistenNasStatus()
       if (unlistenStarted) unlistenStarted()
       if (unlistenProgress) unlistenProgress()
       if (unlistenCompleted) unlistenCompleted()

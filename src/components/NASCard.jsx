@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, CheckCircle, XCircle, Wifi, Play, Square, Cog, Trash2,Circle, CircleOff } from "lucide-react";
+import { ChevronDown, CheckCircle, XCircle, Wifi, Database, Square, Cog, Trash2,Circle, CircleOff } from "lucide-react";
+import { useNASContext } from "../contexts/NASContext";
 
 /**
  * 個別のNASカードコンポーネント
@@ -11,6 +12,7 @@ export default function NASCard({nas}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnected = nas.is_connected === true;
+  const { isBackupRunning } = useNASContext(); // グローバルなNAS・外観検査機一覧
 
   const bytesToGB=(bytes)=>{
     return (bytes/1024/1024/1024).toFixed(2);
@@ -24,7 +26,7 @@ export default function NASCard({nas}) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex-1 flex items-center gap-3 hover:bg-gray-750 transition-colors rounded p-2 -m-2"
         >
-          <Wifi className={isConnected ? "text-blue-600" : "text-gray-500"} size={24} />
+          <Database className={isConnected ? "text-blue-600" : "text-gray-500"} size={24} />
           <div className="flex-1 text-left">
             <h3 className="text-lg font-semibold text-black text-mono">{nas.name}</h3>
           </div>
@@ -55,25 +57,6 @@ export default function NASCard({nas}) {
           />
         </button>
 
-        {/* 接続/切断ボタン */}
-        {isConnected ? (
-          <button
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            <CircleOff size={16} />
-            未使用
-          </button>
-        ) : (
-          <button
-            disabled={isConnecting}
-            className={`flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors ${
-              isConnecting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-          >
-            <Circle size={16} />
-            {isConnecting ? "変更中..." : "使用中"}
-          </button>
-        )}
       </div>
 
       {/* 展開時の詳細情報 */}
@@ -139,28 +122,28 @@ export default function NASCard({nas}) {
               <button
                 disabled={isConnected}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
-                  isConnected
+                  isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                     : "bg-green-700 hover:bg-green-600 text-white"
                 }`}
               >
                 <Cog size={16} />
-                {isConnected ? "接続中は編集できません" : "このNAS情報を編集"}
+                {isBackupRunning ? "バックアップ処理中は編集できません" : "このNAS情報を編集"}
               </button>
             </div>
 
             {/* 削除ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button
-                disabled={isConnected}
+                disabled={isBackupRunning}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
-                  isConnected
+                  isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                     : "bg-red-700 hover:bg-red-600 text-white"
                 }`}
               >
                 <Trash2 size={16} />
-                {isConnected ? "接続中は削除できません" : "このNASを削除"}
+                {isBackupRunning ? "バックアップ処理中は削除できません" : "このNASを削除"}
               </button>
             </div>
           </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, CheckCircle, XCircle, Wifi, Play, Square, Cog, Trash2 } from "lucide-react";
+import { ChevronDown, CheckCircle, XCircle, Wifi, Camera, Square, Cog, Trash2 } from "lucide-react";
+import { useNASContext } from "../contexts/NASContext";
 
 /**
  * 個別のINSPカードコンポーネント
@@ -9,6 +10,7 @@ import { ChevronDown, CheckCircle, XCircle, Wifi, Play, Square, Cog, Trash2 } fr
 export default function INSPCard({insp}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const { isBackupRunning } = useNASContext(); // グローバルなNAS・外観検査機一覧
   const isBackup = insp.is_backup === true; //バックアップを実施するかどうか
 
   return (
@@ -19,7 +21,7 @@ export default function INSPCard({insp}) {
           onClick={() => setIsExpanded(!isExpanded)}
           className="flex-1 flex items-center gap-3 hover:bg-gray-750 transition-colors rounded p-2 -m-2"
         >
-          <Wifi className={isBackup ? "text-blue-600" : "text-gray-500"} size={24} />
+          <Camera className={isBackup ? "text-blue-600" : "text-gray-500"} size={24} />
           <div className="flex-1 text-left">
             <h3 className="text-lg font-semibold text-black text-mono">{insp.name}</h3>
           </div>
@@ -33,12 +35,12 @@ export default function INSPCard({insp}) {
             {isBackup ? (
               <>
                 <CheckCircle size={16} />
-                バックアップ中
+                この検査機器はバックアップ対象です
               </>
             ) : (
               <>
                 <XCircle size={16} />
-                バックアップ中止
+                この検査機器はバックアップしません
               </>
             )}
           </span>
@@ -50,25 +52,6 @@ export default function INSPCard({insp}) {
           />
         </button>
 
-        {/* 接続/切断ボタン */}
-        {isBackup ? (
-          <button
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            <Square size={16} />
-            バックアップを停止
-          </button>
-        ) : (
-          <button
-            disabled={isConnecting}
-            className={`flex items-center gap-2 px-4 py-2 bg-blue-700 hover:bg-blue-600 text-white rounded-lg transition-colors ${
-              isConnecting ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-          >
-            <Play size={16} />
-            {isConnecting ? "接続中..." : "バックアップを再開"}
-          </button>
-        )}
       </div>
 
       {/* 展開時の詳細情報 */}
@@ -81,6 +64,21 @@ export default function INSPCard({insp}) {
             </div>
 
             <div>
+              <p className="text-sm text-gray-400 mb-1">表面外観画像フォルダパス</p>
+              <p className="text-black font-mono">{insp.surface_image_path}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">裏面外観画像フォルダパス</p>
+              <p className="text-black font-mono">{insp.back_image_path}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">Resultファイルフォルダパス</p>
+              <p className="text-black font-mono">{insp.result_path}</p>
+            </div>
+
+            <div>
               <p className="text-sm text-gray-400 mb-1">最終バックアップ完了時刻</p>
               <p className="text-black">{insp.lastBackuped}</p>
             </div>
@@ -88,30 +86,45 @@ export default function INSPCard({insp}) {
             {/* 情報編集ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button
-                disabled={isBackup}
+                disabled={isBackupRunning}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
-                  isBackup
+                  isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                     : "bg-green-700 hover:bg-green-600 text-white"
                 }`}
               >
                 <Cog size={16} />
-                {isBackup ? "接続中は編集できません" : "この検査装置の情報を編集"}
+                {isBackupRunning ? "バックアップ処理中は編集できません" : "この検査装置の情報を編集"}
+              </button>
+            </div>
+
+            {/* バックアップ停止ボタン */}
+            <div className="border-t border-gray-700 pt-4">
+              <button
+                disabled={isBackupRunning}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
+                  isBackupRunning
+                    ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                    : "bg-orange-700 hover:bg-orange-600 text-white"
+                }`}
+              >
+                <Cog size={16} />
+                {isBackupRunning ? "バックアップ処理中は編集できません" : "この検査装置のバックアップを停止"}
               </button>
             </div>
 
             {/* 削除ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button
-                disabled={isBackup}
+                disabled={isBackupRunning}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
-                  isBackup
+                  isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
                     : "bg-red-700 hover:bg-red-600 text-white"
                 }`}
               >
                 <Trash2 size={16} />
-                {isBackup ? "接続中は削除できません" : "この検査装置を削除"}
+                {isBackupRunning ? "バックアップ処理中は削除できません" : "この検査装置を削除"}
               </button>
             </div>
           </div>

@@ -5,7 +5,6 @@ import { X, Plus } from "lucide-react";
 import NASCard from "./NASCard";
 import INSPCard from "./INSPCard";
 import Settings from "./Settings";
-import { useInitListener } from "../listener/Listener";
 import { useNASContext } from "../contexts/NASContext";
 
 export default function StackCard() {
@@ -13,9 +12,6 @@ export default function StackCard() {
     const [error, setError] = useState(null);
     const { nasList, setNasList, inspList, setInspList } = useNASContext(); // グローバルなNAS・外観検査機一覧
     const [tab,setTab]=useState("NAS");
-
-    // リスナーを初期化
-    useInitListener();
 
     // アプリ起動時にNAS設定を読み込む
     useEffect(() => {
@@ -46,7 +42,9 @@ export default function StackCard() {
                     id: config.id,
                     name: config.name,
                     ip: config.insp_ip,
-                    drive: config.drive,
+                    surface_image_path: config.surface_image_path,
+                    back_image_path: config.back_image_path,
+                    result_path: config.result_path,
                     is_backup: config.is_backup,            //転送実施するかどうか
                     lastBackuped: "-",
                 }));
