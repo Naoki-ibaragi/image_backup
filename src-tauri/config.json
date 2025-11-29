@@ -5,6 +5,7 @@
         "back_image_path": "/home/image",
         "id": 1,
         "insp_ip": "127.0.0.1",
+        "is_backup": true,
         "name": "CLT5",
         "result_path": "/home/result",
         "surface_image_path": "/home/image"
@@ -13,6 +14,7 @@
         "back_image_path": "/home/image",
         "id": 2,
         "insp_ip": "127.0.0.1",
+        "is_backup": true,
         "name": "CLT6",
         "result_path": "/home/result",
         "surface_image_path": "/home/image"
@@ -21,6 +23,7 @@
         "back_image_path": "/home/image",
         "id": 3,
         "insp_ip": "127.0.0.1",
+        "is_backup": true,
         "name": "CLT7",
         "result_path": "/home/result",
         "surface_image_path": "/home/image"

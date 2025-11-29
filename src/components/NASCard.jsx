@@ -65,7 +65,7 @@ export default function NASCard({nas}) {
           <div className="pt-4 space-y-4">
             <div>
               <p className="text-sm text-gray-400 mb-1">IPアドレス</p>
-              <p className="text-black font-mono">{nas.ip}</p>
+              <p className="text-black font-mono">{nas.nas_ip}</p>
             </div>
 
             <div>

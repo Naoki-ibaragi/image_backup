@@ -6,12 +6,16 @@ import NASCard from "./NASCard";
 import INSPCard from "./INSPCard";
 import Settings from "./Settings";
 import { useNASContext } from "../contexts/NASContext";
+import AddInspDialog from "./AddInspDialog";
+import AddNasDialog from "./AddNasDialog";
 
 export default function StackCard() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const { nasList, setNasList, inspList, setInspList } = useNASContext(); // グローバルなNAS・外観検査機一覧
+    const { nasList, setNasList, inspList, setInspList, isBackupRunning } = useNASContext(); // グローバルなNAS・外観検査機一覧
     const [tab,setTab]=useState("NAS");
+    const [isAddInspDialogOpen,setIsAddInspDialogOpen]=useState(false); //外観検査機器の追加ダイアログの制御
+    const [isAddNasDialogOpen,setIsAddNasDialogOpen]=useState(false); //NASの追加ダイアログの制御
 
     // アプリ起動時にNAS設定を読み込む
     useEffect(() => {
@@ -24,10 +28,8 @@ export default function StackCard() {
                 const NasFormattedData = configs[0].nas_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
-                    ip: config.nas_ip,
+                    nas_ip: config.nas_ip,
                     drive: config.drive,
-                    now_target: false,                      //現在転送先の対象か
-                    next_target: false,                     //次に転送先の対象になるか
                     is_connected: config.is_connected,      //認識できているか
                     is_use: config.is_use,       //転送実施中かどうか
                     total_space: config.total_space,        //NASの全容量
@@ -41,7 +43,7 @@ export default function StackCard() {
                 const InspFormattedData = configs[0].insp_configs.map((config) => ({
                     id: config.id,
                     name: config.name,
-                    ip: config.insp_ip,
+                    insp_ip: config.insp_ip,
                     surface_image_path: config.surface_image_path,
                     back_image_path: config.back_image_path,
                     result_path: config.result_path,
@@ -127,6 +129,26 @@ export default function StackCard() {
         );
     }
 
+    //外観検査機器の追加処理
+    const addInsp=async (e)=>{
+        e.stopPropagation();
+        if(isBackupRunning){
+        alert("バックアップ処理中は追加できません");
+        return;
+        }
+        setIsAddInspDialogOpen(true);
+    }
+
+    //NASの追加処理
+    const addNas=async (e)=>{
+        e.stopPropagation();
+        if(isBackupRunning){
+        alert("バックアップ処理中は追加できません");
+        return;
+        }
+        setIsAddNasDialogOpen(true);
+    }
+
     return (
         <div className="min-h-screen text-white">
             {/* ヘッダー */}
@@ -198,6 +220,7 @@ export default function StackCard() {
                             </div>
                             <button
                                 className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg transition-colors"
+                                onClick={(e)=>addNas(e)}
                             >
                                 <Plus size={20} />
                                 NAS追加
@@ -226,6 +249,7 @@ export default function StackCard() {
                             </div>
                             <button
                                 className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-lg transition-colors"
+                                onClick={(e)=>addInsp(e)}
                             >
                                 <Plus size={20} />
                                 外観検査機追加
@@ -257,7 +281,16 @@ export default function StackCard() {
                     </>
                 )}
             </main>
-
+        {/* 外観検査機器情報追加ダイアログ */}
+        <AddInspDialog
+            isOpen={isAddInspDialogOpen}
+            onClose={() => setIsAddInspDialogOpen(false)}
+        />
+        {/* NAS情報追加ダイアログ */}
+        <AddNasDialog
+            isOpen={isAddNasDialogOpen}
+            onClose={() => setIsAddNasDialogOpen(false)}
+        />
         </div>
     );
 }

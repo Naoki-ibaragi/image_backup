@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter};
 use sysinfo::Disks;
 use std::net::TcpStream;
 use std::time::Duration as StdDuration;
-use crate::types::{NasConfig, InspConfig};
+use crate::types::{NasConfig, InspConfig,InspInfo};
 
 /// アプリケーション全体の状態を管理する構造体
 /// NASと検査機器の両方の状態を一元管理
@@ -13,34 +13,14 @@ use crate::types::{NasConfig, InspConfig};
 pub struct AppMonitor {
     pub nas_configs: Arc<RwLock<Vec<NasConfig>>>,
     pub insp_configs: Arc<RwLock<Vec<InspConfig>>>,
-    pub enable_nas_list: Arc<RwLock<Vec<u32>>>,
-    pub enable_insp_list: Arc<RwLock<Vec<u32>>>,
 }
 
 impl AppMonitor {
     /// 新しいAppMonitorインスタンスを作成
     pub fn new(nas_configs: Vec<NasConfig>, insp_configs: Vec<InspConfig>) -> Self {
-        let mut enable_nas_list:Vec<u32>=vec![];
-        let mut enable_insp_list:Vec<u32>=vec![];
-        //nas_configsから接続可能なnasのリストを取得する
-        for nas_config in &nas_configs{
-            if nas_config.is_connected==true {
-                enable_nas_list.push(nas_config.id);
-            }
-        }
-
-        //insp_configsから外観機器のリストを取得する
-        for insp_config in &insp_configs{
-            if insp_config.is_backup==true {
-                enable_insp_list.push(insp_config.id);
-            }
-        }
-
         Self {
             nas_configs: Arc::new(RwLock::new(nas_configs)),
             insp_configs: Arc::new(RwLock::new(insp_configs)),
-            enable_nas_list:Arc::new(RwLock::new(enable_nas_list)),
-            enable_insp_list:Arc::new(RwLock::new(enable_insp_list)),
         }
     }
 
@@ -104,6 +84,31 @@ impl AppMonitor {
     pub async fn get_insp_configs(&self) -> Vec<InspConfig> {
         self.insp_configs.read().await.clone()
     }
+
+    /// 検査機器設定を更新
+    pub async fn update_insp_configs(&self, new_insp_info: &InspInfo) {
+        let mut configs = self.insp_configs.write().await;
+        for insp_config in configs.iter_mut(){
+            if insp_config.id==new_insp_info.id{
+                insp_config.name=new_insp_info.name.clone();
+                insp_config.insp_ip=new_insp_info.insp_ip.clone();
+                insp_config.surface_image_path=new_insp_info.surface_image_path.clone();
+                insp_config.back_image_path=new_insp_info.back_image_path.clone();
+                insp_config.result_path=new_insp_info.result_path.clone();
+            }
+        }
+    }
+
+    ///検査機器のバックアップ設定を切り替え
+    pub async fn switch_insp_backup_settings(&self,insp_id:u32){
+        let mut configs = self.insp_configs.write().await;
+        for insp_config in configs.iter_mut(){
+            if insp_config.id==insp_id{
+                insp_config.is_backup=!insp_config.is_backup;
+            }
+        }
+    }
+
 }
 
 /// NASへの接続をチェック（SMBポート445へのTCP接続を試行）

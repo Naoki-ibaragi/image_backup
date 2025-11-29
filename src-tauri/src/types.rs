@@ -18,9 +18,16 @@ pub struct InspInfo {
     pub id: u32,
     pub name: String,
     pub insp_ip: String,
-    pub surface_image_path: String,     //
-    pub back_image_path: String,     //
+    pub surface_image_path: String,
+    pub back_image_path: String,
     pub result_path: String,
+    #[serde(default = "default_is_backup")]
+    pub is_backup: bool,
+}
+
+// デフォルト値としてtrueを返す関数
+fn default_is_backup() -> bool {
+    true
 }
 
 /// Nas基本情報

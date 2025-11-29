@@ -2,9 +2,10 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::command;
 use serde_json::{Value, json};
+use std::collections::HashMap;
 
 //独自クレートのimport
-use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig};
+use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig,InspInfo};
 use crate::app_monitor::{check_nas_connection};
 
 /// 設定ファイルの読み込みで初期化
@@ -63,7 +64,7 @@ pub async fn init_info() -> Result<(Configs,SettingsConfig), String> {
             surface_image_path:data.surface_image_path,
             back_image_path:data.back_image_path,
             result_path:data.result_path,
-            is_backup:true, //バックアップを実施するかどうか
+            is_backup:data.is_backup, //バックアップを実施するかどうか(config.jsonから読み込み)
         };
 
         insp_configs.push(insp_config);
@@ -101,6 +102,86 @@ pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
         .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
 
     println!("Settings saved successfully to {:?}", config_path);
+    Ok(())
+}
+
+//更新した外観検査の設定をconfig.jsonに保存
+#[command]
+pub async fn save_insp_settings(insp: InspInfo) -> Result<(), String> {
+    let config_path = get_config_path()?;
+
+    // 既存のconfig.jsonを読み込む
+    let config_content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+
+    // JSONとしてパース
+    let mut value: Value = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+
+    let mut insp_info: InspInfos = serde_json::from_value(value["insp_units"].clone())
+    .map_err(|e| format!("Failed to parse nas_units: {}", e))?;
+
+    //idが一致する情報を更新
+    for info in &mut insp_info.insps{
+        if info.id==insp.id{
+            info.name=insp.name.clone();
+            info.insp_ip=insp.insp_ip.clone();
+            info.surface_image_path=insp.surface_image_path.clone();
+            info.back_image_path=insp.back_image_path.clone();
+            info.result_path=insp.result_path.clone();
+            info.is_backup=insp.is_backup;
+        }
+    }
+
+    value["insp_units"]["insps"] = json!(
+        insp_info.insps
+    );
+
+    // ファイルに書き込む（インデント付き）
+    let updated_content = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    fs::write(&config_path, updated_content)
+        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+
+    println!("Settings saved successfully to {:?}", config_path);
+    Ok(())
+}
+
+/// バックアップ設定の切り替えをconfig.jsonに保存
+#[command]
+pub async fn save_insp_backup_setting(insp_id: u32, is_backup: bool) -> Result<(), String> {
+    let config_path = get_config_path()?;
+
+    // 既存のconfig.jsonを読み込む
+    let config_content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+
+    // JSONとしてパース
+    let mut value: Value = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+
+    let mut insp_info: InspInfos = serde_json::from_value(value["insp_units"].clone())
+        .map_err(|e| format!("Failed to parse insp_units: {}", e))?;
+
+    // idが一致する情報のis_backupを更新
+    for info in &mut insp_info.insps {
+        if info.id == insp_id {
+            info.is_backup = is_backup;
+            break;
+        }
+    }
+
+    value["insp_units"]["insps"] = json!(insp_info.insps);
+
+    // ファイルに書き込む（インデント付き）
+    let updated_content = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    fs::write(&config_path, updated_content)
+        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+
+    println!("Backup setting saved successfully to {:?}", config_path);
     Ok(())
 }
 

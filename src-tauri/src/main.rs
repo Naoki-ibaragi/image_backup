@@ -16,11 +16,11 @@ use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt,MessageDialogKind};
 use tauri_plugin_single_instance::init as single_instance;
 
-use config::{init_info, save_settings};
+use config::{init_info, save_settings, save_insp_settings, save_insp_backup_setting};
 use app_monitor::AppMonitor;
 use settings_monitor::SettingsMonitor;
 use backup_scheduler::BackupScheduler;
-use crate::types::{NasConfig, InspConfig, SettingsConfig, BackupStatus};
+use crate::types::{NasConfig, InspConfig, SettingsConfig, BackupStatus,InspInfo};
 use tauri::{command, State};
 
 /// NASの現在の状態を取得
@@ -62,6 +62,60 @@ async fn update_settings(
     Ok(())
 }
 
+/// 外観の設定を更新(メモリとファイルの両方)
+#[command]
+async fn edit_insp_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    new_insp_info:InspInfo
+) -> Result<Vec<InspConfig>, String> {
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // 先にメモリ上の設定を更新
+    app_monitor.update_insp_configs(&new_insp_info).await;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    save_insp_settings(new_insp_info).await?;
+
+    //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
+    let insp_configs=app_monitor.get_insp_configs().await;
+
+    Ok(insp_configs)
+}
+
+//外観のis_backup切り替え
+#[command]
+async fn change_insp_backup_settings(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    insp_id:u32
+) -> Result<Vec<InspConfig>, String> {
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // メモリ上の設定を更新
+    app_monitor.switch_insp_backup_settings(insp_id).await;
+
+    // 更新後の状態を取得してファイルに保存
+    let insp_configs = app_monitor.get_insp_configs().await;
+
+    // 該当IDのis_backup状態を取得
+    if let Some(insp) = insp_configs.iter().find(|c| c.id == insp_id) {
+        save_insp_backup_setting(insp_id, insp.is_backup).await?;
+    }
+
+    Ok(insp_configs)
+}
+
+
+
+
+
 /// バックアップの状態を取得
 #[command]
 async fn get_backup_status(scheduler: State<'_, BackupScheduler>) -> Result<BackupStatus, String> {
@@ -76,6 +130,8 @@ fn main() {
         get_insp_status,
         get_settings,
         update_settings,
+        edit_insp_configs,
+        change_insp_backup_settings,
         get_backup_status,
     ])
     .plugin(tauri_plugin_dialog::init())
