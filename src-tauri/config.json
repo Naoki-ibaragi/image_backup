@@ -3,15 +3,6 @@
     "insps": [
       {
         "back_image_path": "/home/image",
-        "id": 1,
-        "insp_ip": "127.0.0.1",
-        "is_backup": true,
-        "name": "CLT5",
-        "result_path": "/home/result",
-        "surface_image_path": "/home/image"
-      },
-      {
-        "back_image_path": "/home/image",
         "id": 2,
         "insp_ip": "127.0.0.1",
         "is_backup": true,
@@ -27,6 +18,24 @@
         "name": "CLT7",
         "result_path": "/home/result",
         "surface_image_path": "/home/image"
+      },
+      {
+        "back_image_path": "/home/usr/jpg/back",
+        "id": 4,
+        "insp_ip": "192.168.0.101",
+        "is_backup": true,
+        "name": "CLT8",
+        "result_path": "/home/usr/result",
+        "surface_image_path": "/home/usr/jpg/surface"
+      },
+      {
+        "back_image_path": "/home/usr/jpg/back",
+        "id": 5,
+        "insp_ip": "192.168.0.103",
+        "is_backup": true,
+        "name": "TR3",
+        "result_path": "/home/usr/result",
+        "surface_image_path": "/home/usr/jpg/surface"
       }
     ]
   },
@@ -49,6 +58,12 @@
         "id": 3,
         "name": "NAS3",
         "nas_ip": "192.168.0.52"
+      },
+      {
+        "drive": "P",
+        "id": 4,
+        "name": "NAS4",
+        "nas_ip": "192.168.0.102"
       }
     ]
   },

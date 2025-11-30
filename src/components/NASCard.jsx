@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { ChevronDown, CheckCircle, XCircle, Wifi, Database, Square, Cog, Trash2,Circle, CircleOff } from "lucide-react";
 import { useNASContext } from "../contexts/NASContext";
+import EditNasDialog from "./EditNasDialog";
+import { invoke } from "@tauri-apps/api/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 /**
  * 個別のNASカードコンポーネント
@@ -12,10 +15,77 @@ export default function NASCard({nas}) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const isConnected = nas.is_connected === true;
-  const { isBackupRunning } = useNASContext(); // グローバルなNAS・外観検査機一覧
+  const { isBackupRunning,nasList,setNasList } = useNASContext(); // グローバルなNAS・外観検査機一覧
+  const [isEditDialogOpen,setIsEditDialogOpen]=useState(false); //外観検査機器の編集ダイアログの制御
 
   const bytesToGB=(bytes)=>{
     return (bytes/1024/1024/1024).toFixed(2);
+  }
+
+  //NASを編集
+  const handleEdit=(e)=>{
+    e.stopPropagation();
+    if(isBackupRunning){
+      alert("バックアップ処理中は編集できません");
+      return;
+    }
+    setIsEditDialogOpen(true);
+  }
+
+  //NASを削除
+  const handleDeleteSettings=async (e)=>{
+    e.stopPropagation();
+    if(isBackupRunning){
+      alert("バックアップ処理中は切り替えできません");
+      return;
+    }
+
+    const result = await ask(`${nas.name}を本当に削除しますか？`, {
+      title: "削除の確認",
+      kind: "warning"
+    });
+    if (!result) {
+      return;
+    }
+
+    try {
+        //バックエンドで更新を実施
+        const backend_nas_configs = await invoke("delete_nas_configs",{id:nas.id});
+        console.log("delete_nas_configs",backend_nas_configs);
+
+        //受け取ったbackup_nas_configsと現在のnasListを合体
+        const new_nas_list=backend_nas_configs.map((backend_nas)=>{
+            let is_use=true;
+            let is_connected=false;
+            let total_space=0;
+            let used_space=0;
+            let free_space=0;
+            nasList.forEach((current_nas)=>{
+                if(backend_nas.id===current_nas.id) {
+                  is_use=current_nas.is_use;
+                  is_connected=current_nas.is_use;
+                  total_space=current_nas.total_space;
+                  used_space=current_nas.used_space;
+                  free_space=current_nas.free_space;
+                }
+            });
+            return {
+                ...backend_nas,
+                is_use: is_use,
+                is_connected: is_connected,
+                total_space:total_space,
+                used_space:used_space,
+                free_space:free_space,
+            };
+        });
+
+        //naslistを更新
+        setNasList(new_nas_list);
+        alert(`${nas.name}の削除が完了しました`);
+    } catch (error) {
+        console.error("Failed to Delete nas info:", error);
+        alert(`${nas.name}の削除に失敗しました : ${error}`);
+    }
   }
 
   return (
@@ -120,7 +190,8 @@ export default function NASCard({nas}) {
             {/* 情報編集ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button
-                disabled={isConnected}
+                disabled={isBackupRunning}
+                onClick={(e)=>handleEdit(e)}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
                   isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
@@ -136,6 +207,7 @@ export default function NASCard({nas}) {
             <div className="border-t border-gray-700 pt-4">
               <button
                 disabled={isBackupRunning}
+                onClick={(e)=>handleDeleteSettings(e)}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
                   isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
@@ -149,6 +221,12 @@ export default function NASCard({nas}) {
           </div>
         </div>
       )}
+      {/* 外観検査機器情報編集ダイアログ */}
+      <EditNasDialog
+        nas={nas}
+        isOpen={isEditDialogOpen}
+        onClose={() => setIsEditDialogOpen(false)}
+      />
     </div>
   );
 }

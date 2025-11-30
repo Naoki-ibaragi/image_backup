@@ -3,6 +3,7 @@ import { ChevronDown, CheckCircle, XCircle, Wifi, Camera, Square, Cog, Trash2 } 
 import { useNASContext } from "../contexts/NASContext";
 import EditInspDialog from "./EditInspDialog";
 import { invoke } from "@tauri-apps/api/core";
+import { ask } from "@tauri-apps/plugin-dialog";
 
 /**
  * 個別のINSPカードコンポーネント
@@ -57,6 +58,48 @@ export default function INSPCard({insp}) {
     } catch (error) {
         console.error("Failed to Edit insp info:", error);
         isBackup ? alert(`バックアップの無効化に失敗しました : ${error}`) : alert(`バックアップの有効化に失敗しました : ${error}`)
+    }
+  }
+
+  //検査装置を削除
+  const handleDeleteSettings=async (e)=>{
+    e.stopPropagation();
+    if(isBackupRunning){
+      alert("バックアップ処理中は切り替えできません");
+      return;
+    }
+
+    const result = await ask(`${insp.name}を本当に削除しますか？`, {
+      title: "削除の確認",
+      kind: "warning"
+    });
+    if (!result) {
+      return;
+    }
+
+    try {
+        //バックエンドで更新を実施
+        const backend_insp_configs = await invoke("delete_insp_configs",{id:insp.id});
+        console.log("delete_insp_configs",backend_insp_configs);
+
+        //受け取ったbackup_insp_configsと現在のinspListを合体
+        const new_insp_list=backend_insp_configs.map((backend_insp)=>{
+            let last_backuped="-";
+            inspList.forEach((current_insp)=>{
+                if(backend_insp.id===current_insp.id) last_backuped=current_insp.lastBackuped;
+            });
+            return {
+                ...backend_insp,
+                lastBackuped: last_backuped
+            };
+        });
+
+        //insplistを更新
+        setInspList(new_insp_list);
+        alert(`${insp.name}の削除が完了しました`);
+    } catch (error) {
+        console.error("Failed to Delete insp info:", error);
+        alert(`${insp.name}の削除に失敗しました : ${error}`);
     }
   }
 
@@ -166,6 +209,7 @@ export default function INSPCard({insp}) {
             <div className="border-t border-gray-700 pt-4">
               <button
                 disabled={isBackupRunning}
+                onClick={(e)=>handleDeleteSettings(e)}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-1 rounded-lg transition-colors ${
                   isBackupRunning
                     ? "bg-gray-700 text-gray-500 cursor-not-allowed"
@@ -179,7 +223,7 @@ export default function INSPCard({insp}) {
           </div>
         </div>
       )}
-      {/* PLC情報編集ダイアログ */}
+      {/* 外観検査機器情報編集ダイアログ */}
       <EditInspDialog
         insp={insp}
         isOpen={isEditDialogOpen}

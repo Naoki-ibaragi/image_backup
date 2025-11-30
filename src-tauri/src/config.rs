@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 use std::collections::HashMap;
 
 //独自クレートのimport
-use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig,InspInfo};
+use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig,InspInfo,NasInfo};
 use crate::app_monitor::{check_nas_connection};
 
 /// 設定ファイルの読み込みで初期化
@@ -107,7 +107,7 @@ pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
 
 //更新した外観検査の設定をconfig.jsonに保存
 #[command]
-pub async fn save_insp_settings(insp: InspInfo) -> Result<(), String> {
+pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), String> {
     let config_path = get_config_path()?;
 
     // 既存のconfig.jsonを読み込む
@@ -118,19 +118,30 @@ pub async fn save_insp_settings(insp: InspInfo) -> Result<(), String> {
     let mut value: Value = serde_json::from_str(&config_content)
         .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
 
+    //insp部分を取り出し
     let mut insp_info: InspInfos = serde_json::from_value(value["insp_units"].clone())
     .map_err(|e| format!("Failed to parse nas_units: {}", e))?;
 
-    //idが一致する情報を更新
-    for info in &mut insp_info.insps{
-        if info.id==insp.id{
-            info.name=insp.name.clone();
-            info.insp_ip=insp.insp_ip.clone();
-            info.surface_image_path=insp.surface_image_path.clone();
-            info.back_image_path=insp.back_image_path.clone();
-            info.result_path=insp.result_path.clone();
-            info.is_backup=insp.is_backup;
+    if keyword=="edit"{
+        //idが一致する情報を更新
+        for info in &mut insp_info.insps{
+            if info.id==insp.id{
+                info.name=insp.name.clone();
+                info.insp_ip=insp.insp_ip.clone();
+                info.surface_image_path=insp.surface_image_path.clone();
+                info.back_image_path=insp.back_image_path.clone();
+                info.result_path=insp.result_path.clone();
+                info.is_backup=insp.is_backup;
+            }
         }
+    }else if keyword=="add"{
+        //新しいidのinsp_infoを追加
+        insp_info.insps.push(insp);
+    }else if keyword=="delete"{
+        //該当idのinsp_infoを削除
+        insp_info.insps.retain(|info| info.id != insp.id);
+    }else{
+        return Err("keyword is not correct at save_insp_settings".into());
     }
 
     value["insp_units"]["insps"] = json!(
@@ -147,6 +158,60 @@ pub async fn save_insp_settings(insp: InspInfo) -> Result<(), String> {
     println!("Settings saved successfully to {:?}", config_path);
     Ok(())
 }
+
+//更新した外観検査の設定をconfig.jsonに保存
+#[command]
+pub async fn save_nas_settings(nas: NasInfo,keyword:&str) -> Result<(), String> {
+    let config_path = get_config_path()?;
+
+    // 既存のconfig.jsonを読み込む
+    let config_content = fs::read_to_string(&config_path)
+        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+
+    // JSONとしてパース
+    let mut value: Value = serde_json::from_str(&config_content)
+        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+
+    //nas部分を取り出し
+    let mut nas_info: NasInfos = serde_json::from_value(value["nas_units"].clone())
+    .map_err(|e| format!("Failed to parse nas_units: {}", e))?;
+
+    if keyword=="edit"{
+        //idが一致する情報を更新
+        for info in &mut nas_info.nass{
+            if info.id==nas.id{
+                info.name=nas.name.clone();
+                info.nas_ip=nas.nas_ip.clone();
+                info.drive=nas.drive.clone();
+            }
+        }
+    }else if keyword=="add"{
+        //新しいidのnas_infoを追加
+        nas_info.nass.push(nas);
+    }else if keyword=="delete"{
+        //該当idのnas_infoを削除
+        nas_info.nass.retain(|info| info.id != nas.id);
+    }else{
+        return Err("keyword is not correct at save_nas_settings".into());
+    }
+
+    value["nas_units"]["nass"] = json!(
+        nas_info.nass
+    );
+
+    // ファイルに書き込む（インデント付き）
+    let updated_content = serde_json::to_string_pretty(&value)
+        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+
+    fs::write(&config_path, updated_content)
+        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+
+    println!("Settings saved successfully to {:?}", config_path);
+    Ok(())
+}
+
+
+
 
 /// バックアップ設定の切り替えをconfig.jsonに保存
 #[command]

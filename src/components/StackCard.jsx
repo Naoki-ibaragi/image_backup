@@ -31,7 +31,7 @@ export default function StackCard() {
                     nas_ip: config.nas_ip,
                     drive: config.drive,
                     is_connected: config.is_connected,      //認識できているか
-                    is_use: config.is_use,       //転送実施中かどうか
+                    is_use: config.is_use,                  //使用するかどうか
                     total_space: config.total_space,        //NASの全容量
                     used_space: config.used_space,    //NASの現在の容量
                     free_space: config.free_space,          //NASの現在の空容量

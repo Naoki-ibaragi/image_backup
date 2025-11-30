@@ -5,7 +5,7 @@ use tauri::{AppHandle, Emitter};
 use sysinfo::Disks;
 use std::net::TcpStream;
 use std::time::Duration as StdDuration;
-use crate::types::{NasConfig, InspConfig,InspInfo};
+use crate::types::{NasConfig, InspConfig,InspInfo,NasInfo};
 
 /// アプリケーション全体の状態を管理する構造体
 /// NASと検査機器の両方の状態を一元管理
@@ -85,7 +85,7 @@ impl AppMonitor {
         self.insp_configs.read().await.clone()
     }
 
-    /// 検査機器設定を更新
+    /// 検査機器設定を更新(編集)
     pub async fn update_insp_configs(&self, new_insp_info: &InspInfo) {
         let mut configs = self.insp_configs.write().await;
         for insp_config in configs.iter_mut(){
@@ -95,6 +95,18 @@ impl AppMonitor {
                 insp_config.surface_image_path=new_insp_info.surface_image_path.clone();
                 insp_config.back_image_path=new_insp_info.back_image_path.clone();
                 insp_config.result_path=new_insp_info.result_path.clone();
+            }
+        }
+    }
+
+    /// NAS設定を更新(編集)
+    pub async fn update_nas_configs(&self, new_nas_info: &NasInfo) {
+        let mut configs = self.nas_configs.write().await;
+        for nas_config in configs.iter_mut(){
+            if nas_config.id==new_nas_info.id{
+                nas_config.name=new_nas_info.name.clone();
+                nas_config.nas_ip=new_nas_info.nas_ip.clone();
+                nas_config.drive=new_nas_info.drive.clone();
             }
         }
     }
@@ -109,6 +121,94 @@ impl AppMonitor {
         }
     }
 
+    ///メモリ上に検査機器を追加
+    pub async fn add_insp(&self,name:String,insp_ip:String,surface_image_path:String,back_image_path:String,result_path:String)->u32{
+        let mut configs = self.insp_configs.write().await;
+        //現在のidの最大値に+1したものを新しく追加する機器のidにする
+        let new_id = configs.iter()
+            .map(|config| config.id)
+            .max()
+            .unwrap_or(0) + 1;
+
+        configs.push(InspConfig { 
+            id: new_id, 
+            name, 
+            insp_ip, 
+            surface_image_path, 
+            back_image_path, 
+            result_path, 
+            is_backup:true
+        });
+
+        new_id
+    }
+
+    ///メモリ上にNASを追加
+    pub async fn add_nas(&self,name:String,nas_ip:String,drive:String)->u32{
+        let mut configs = self.nas_configs.write().await;
+        //現在のidの最大値に+1したものを新しく追加する機器のidにする
+        let new_id = configs.iter()
+            .map(|config| config.id)
+            .max()
+            .unwrap_or(0) + 1;
+
+        configs.push(NasConfig { 
+            id: new_id, 
+            name, 
+            nas_ip,
+            drive,
+            is_use:true,
+            is_connected:false,
+            total_space:0,
+            used_space:0,
+            free_space:0
+        });
+
+        new_id
+    }
+
+    ///メモリ上の検査機器を削除
+    pub async fn delete_insp(&self,id:u32) -> Option<InspInfo> {
+        let mut configs = self.insp_configs.write().await;
+
+        // 削除する要素を見つけてInspInfoに変換
+        let deleted_info = configs.iter()
+            .find(|config| config.id == id)
+            .map(|config| InspInfo {
+                id: config.id,
+                name: config.name.clone(),
+                insp_ip: config.insp_ip.clone(),
+                surface_image_path: config.surface_image_path.clone(),
+                back_image_path: config.back_image_path.clone(),
+                result_path: config.result_path.clone(),
+                is_backup: config.is_backup,
+            });
+
+        // 要素を削除
+        configs.retain(|config| config.id != id);
+
+        deleted_info
+    }
+
+    ///メモリ上のNASを削除
+    pub async fn delete_nas(&self,id:u32) -> Option<NasInfo> {
+        let mut configs = self.nas_configs.write().await;
+
+        // 削除する要素を見つけてInspInfoに変換
+        let deleted_info = configs.iter()
+            .find(|config| config.id == id)
+            .map(|config| NasInfo {
+                id: config.id,
+                name: config.name.clone(),
+                nas_ip: config.nas_ip.clone(),
+                drive: config.drive.clone(),
+            });
+
+        // 要素を削除
+        configs.retain(|config| config.id != id);
+
+        deleted_info
+    }
 }
 
 /// NASへの接続をチェック（SMBポート445へのTCP接続を試行）

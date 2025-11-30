@@ -18,14 +18,24 @@ export default function AddInspDialog({ isOpen, onClose}) {
     result_path: "",
     is_backup: true,
   });
-  const { setInspList } = useNASContext(); // グローバルなNAS・外観検査機一覧
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { inspList,setInspList } = useNASContext(); // グローバルなNAS・外観検査機一覧
 
   //バックエンドと通信
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // 二重送信防止
+
+    setIsSubmitting(true);
     try {
         //バックエンドで更新を実施
-        const backend_insp_configs = await invoke("add_insp_configs",{newInspInfo:formData});
+        const backend_insp_configs = await invoke("add_insp_configs",
+          {name:formData.name,
+            inspIp:formData.insp_ip,
+            surfaceImagePath:formData.surface_image_path,
+            backImagePath:formData.back_image_path,
+            resultPath:formData.result_path
+          });
         console.log("backend_insp_configs",backend_insp_configs);
 
         //受け取ったbackup_insp_configsと現在のinspListを合体
@@ -47,6 +57,8 @@ export default function AddInspDialog({ isOpen, onClose}) {
     } catch (error) {
         console.error("Failed to Add insp :", error);
         alert(`外観検査情報の追加に失敗しました : ${error}`);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -54,7 +66,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-200 rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div className="bg-gray-100 rounded-lg p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold font-mono text-black">外観検査機器情報を追加</h2>
           <button
@@ -72,7 +84,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="例: CLT5"
                 required
                 />
@@ -84,7 +96,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.insp_ip}
                 onChange={(e) => setFormData({ ...formData, insp_ip: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="例: 192.168.1.100"
                 required
                 />
@@ -96,7 +108,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.surface_image_path}
                 onChange={(e) => setFormData({ ...formData, surface_image_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/jpg/surface"
                 required
                 />
@@ -108,7 +120,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.back_image_path}
                 onChange={(e) => setFormData({ ...formData, back_image_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/jpg/back"
                 required
                 />
@@ -120,7 +132,7 @@ export default function AddInspDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.result_path}
                 onChange={(e) => setFormData({ ...formData, result_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/result"
                 required
                 />
@@ -136,9 +148,10 @@ export default function AddInspDialog({ isOpen, onClose}) {
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              disabled={isSubmitting}
+              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              追加
+              {isSubmitting ? "処理中..." : "追加"}
             </button>
           </div>
         </form>

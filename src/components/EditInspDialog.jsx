@@ -70,9 +70,9 @@ const { inspList,setInspList } = useNASContext(); // グローバルなNAS・外
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div className="bg-gray-100 rounded-lg p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-white">外観検査機器情報を編集</h2>
+          <h2 className="text-xl font-bold font-mono text-black">外観検査機器情報を編集</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-700 rounded transition-colors"
@@ -83,60 +83,60 @@ const { inspList,setInspList } = useNASContext(); // グローバルなNAS・外
 
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-                <label className="block text-sm text-gray-400 mb-1">装置名</label>
+                <label className="block text-sm text-gray-700 mb-1">装置名</label>
                 <input
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="例: CLT5"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-400 mb-1">外観検査IPアドレス</label>
+                <label className="block text-sm text-gray-700 mb-1">外観検査IPアドレス</label>
                 <input
                 type="text"
                 value={formData.insp_ip}
                 onChange={(e) => setFormData({ ...formData, insp_ip: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="例: 192.168.1.100"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-400 mb-1">外観検査表面画像フォルダパス</label>
+                <label className="block text-sm text-gray-700 mb-1">外観検査表面画像フォルダパス</label>
                 <input
                 type="text"
                 value={formData.surface_image_path}
                 onChange={(e) => setFormData({ ...formData, surface_image_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/jpg/surface"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-400 mb-1">外観検査裏面画像フォルダパス</label>
+                <label className="block text-sm text-gray-700 mb-1">外観検査裏面画像フォルダパス</label>
                 <input
                 type="text"
                 value={formData.back_image_path}
                 onChange={(e) => setFormData({ ...formData, back_image_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/jpg/back"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-400 mb-1">外観検査resultファイルフォルダパス</label>
+                <label className="block text-sm text-gray-700 mb-1">外観検査resultファイルフォルダパス</label>
                 <input
                 type="text"
                 value={formData.result_path}
                 onChange={(e) => setFormData({ ...formData, result_path: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-700 text-white rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/result"
                 required
                 />

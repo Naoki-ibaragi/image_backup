@@ -6,17 +6,30 @@ import { invoke } from "@tauri-apps/api/core";
 /**
  * 追加ダイアログコンポーネント
  * @param {Object} props
+ * @param {Object} porps.nas
  * @param {boolean} props.isOpen - ダイアログの開閉状態
  * @param {Function} props.onClose - 閉じるハンドラー
  */
-export default function AddNasDialog({ isOpen, onClose}) {
+export default function EditNasDialog({ nas,isOpen, onClose}) {
   const [formData, setFormData] = useState({
-    name: "",
-    nas_ip: "",
-    drive: "",
+    id:nas.id,
+    name: nas.name,
+    nas_ip: nas.nas_ip,
+    drive: nas.drive,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { nasList,setNasList } = useNASContext(); // グローバルなNAS・外観検査機一覧
+const { nasList,setNasList } = useNASContext(); // グローバルなNAS・外観検査機一覧
+
+  useEffect(() => {
+    if (nas) {
+      setFormData({
+        id:nas.id,
+        name: nas.name,
+        nas_ip: nas.nas_ip,
+        drive: nas.drive,
+      });
+    }
+  }, [nas]);
 
   //バックエンドと通信
   const handleSubmit = async (e) => {
@@ -26,7 +39,7 @@ export default function AddNasDialog({ isOpen, onClose}) {
     setIsSubmitting(true);
     try {
         //バックエンドで更新を実施
-        const backend_nas_configs = await invoke("add_nas_configs",{name:formData.name,nasIp:formData.nas_ip,drive:formData.drive});
+        const backend_nas_configs = await invoke("edit_nas_configs",{newNasInfo:formData});
         console.log("backend_nas_configs",backend_nas_configs);
 
         //受け取ったbackup_nas_configsと現在のnasListを合体
@@ -58,10 +71,10 @@ export default function AddNasDialog({ isOpen, onClose}) {
         //naslistを更新
         setNasList(new_nas_list);
         onClose();
-        alert("NAS情報の追加が完了しました");
+        alert("NAS情報の更新が完了しました");
     } catch (error) {
-        console.error("Failed to Add NAS :", error);
-        alert(`NAS情報の追加に失敗しました : ${error}`);
+        console.error("Failed to Edit nas info:", error);
+        alert(`NAS情報の編集に失敗しました : ${error}`);
     } finally {
         setIsSubmitting(false);
     }
@@ -71,9 +84,9 @@ export default function AddNasDialog({ isOpen, onClose}) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-200 rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div className="bg-gray-100 rounded-lg p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold font-mono text-black">NAS情報を追加</h2>
+          <h2 className="text-xl font-bold font-mono text-black">外観検査機器情報を編集</h2>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-700 rounded transition-colors"
@@ -89,36 +102,35 @@ export default function AddNasDialog({ isOpen, onClose}) {
                 type="text"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                placeholder="例: NAS1"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                placeholder="例: CLT5"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-700 mb-1">NAS IPアドレス</label>
+                <label className="block text-sm text-gray-400 mb-1">NAS IPアドレス</label>
                 <input
                 type="text"
                 value={formData.nas_ip}
                 onChange={(e) => setFormData({ ...formData, nas_ip: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="例: 192.168.1.100"
                 required
                 />
             </div>
 
             <div>
-                <label className="block text-sm text-gray-700 mb-1">NAS ネットワークドライブ名</label>
+                <label className="block text-sm text-gray-400 mb-1">NAS ネットワークドライブ名</label>
                 <input
                 type="text"
                 value={formData.drive}
                 onChange={(e) => setFormData({ ...formData, drive: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-200 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                placeholder="Z"
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                placeholder="A"
                 required
                 />
             </div>
-
           <div className="flex gap-3 pt-4">
             <button
               type="button"
@@ -132,7 +144,7 @@ export default function AddNasDialog({ isOpen, onClose}) {
               disabled={isSubmitting}
               className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? "処理中..." : "追加"}
+              {isSubmitting ? "処理中..." : "編集"}
             </button>
           </div>
         </form>

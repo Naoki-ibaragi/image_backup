@@ -16,11 +16,11 @@ use tauri::Manager;
 use tauri_plugin_dialog::{DialogExt,MessageDialogKind};
 use tauri_plugin_single_instance::init as single_instance;
 
-use config::{init_info, save_settings, save_insp_settings, save_insp_backup_setting};
+use config::{init_info, save_settings, save_insp_settings, save_nas_settings,save_insp_backup_setting};
 use app_monitor::AppMonitor;
 use settings_monitor::SettingsMonitor;
 use backup_scheduler::BackupScheduler;
-use crate::types::{NasConfig, InspConfig, SettingsConfig, BackupStatus,InspInfo};
+use crate::types::{NasConfig, InspConfig, SettingsConfig, BackupStatus,InspInfo,NasInfo};
 use tauri::{command, State};
 
 /// NASの現在の状態を取得
@@ -78,12 +78,38 @@ async fn edit_insp_configs(
     app_monitor.update_insp_configs(&new_insp_info).await;
 
     // メモリ上の更新が成功したらメモリの内容をファイルに保存
-    save_insp_settings(new_insp_info).await?;
+    save_insp_settings(new_insp_info,"edit").await?;
 
     //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
     let insp_configs=app_monitor.get_insp_configs().await;
 
     Ok(insp_configs)
+}
+
+/// NASの設定を更新(メモリとファイルの両方)
+#[command]
+async fn edit_nas_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    new_nas_info:NasInfo
+) -> Result<Vec<NasConfig>, String> {
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // 先にメモリ上の設定を更新
+    app_monitor.update_nas_configs(&new_nas_info).await;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    save_nas_settings(new_nas_info,"edit").await?;
+
+    //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
+    let nas_configs=app_monitor.get_nas_configs().await;
+
+    println!("{:?}",nas_configs);
+
+    Ok(nas_configs)
 }
 
 //外観のis_backup切り替え
@@ -112,8 +138,124 @@ async fn change_insp_backup_settings(
     Ok(insp_configs)
 }
 
+//外観検査機器の追加
+#[command]
+async fn add_insp_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    name:String,
+    insp_ip:String,
+    surface_image_path:String,
+    back_image_path:String,
+    result_path:String
+) -> Result<Vec<InspConfig>, String> {
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // メモリ上の設定を更新
+    let new_id=app_monitor.add_insp(name.clone(),insp_ip.clone(),surface_image_path.clone(),back_image_path.clone(),result_path.clone()).await;
+
+    // 更新後のメモリ上の設定を取得
+    let insp_configs = app_monitor.get_insp_configs().await;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    //save_insp_settingsに渡すためにInspInfoを作成
+    let add_insp_info:InspInfo=InspInfo { id: new_id, name, insp_ip, surface_image_path, back_image_path, result_path, is_backup:true };
+    save_insp_settings(add_insp_info,"add").await?;
+
+    println!("{:?}",insp_configs);
+
+    Ok(insp_configs)
+}
+
+//NASの追加
+#[command]
+async fn add_nas_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    name:String,
+    nas_ip:String,
+    drive:String,
+) -> Result<Vec<NasConfig>, String> {
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // メモリ上の設定を更新
+    let new_id=app_monitor.add_nas(name.clone(),nas_ip.clone(),drive.clone()).await;
+
+    // 更新後のメモリ上の設定を取得
+    let nas_configs = app_monitor.get_nas_configs().await;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    //save_insp_settingsに渡すためにInspInfoを作成
+    let add_nas_info:NasInfo=NasInfo { id: new_id, name, nas_ip,drive};
+    save_nas_settings(add_nas_info,"add").await?;
+
+    println!("{:?}",nas_configs);
+
+    Ok(nas_configs)
+}
 
 
+///外観検査機器設定の削除を実施
+#[command]
+async fn delete_insp_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    id:u32,
+)->Result<Vec<InspConfig>,String>{
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // 先にメモリ上の設定を更新
+    let deleted_insp_info = app_monitor.delete_insp(id).await
+        .ok_or("指定されたIDの検査機器が見つかりませんでした".to_string())?;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    save_insp_settings(deleted_insp_info,"delete").await?;
+
+    //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
+    let insp_configs=app_monitor.get_insp_configs().await;
+
+    println!("{:?}",insp_configs);
+
+    Ok(insp_configs)
+
+}
+
+///NASの削除を実施
+#[command]
+async fn delete_nas_configs(
+    app_monitor: State<'_, AppMonitor>,
+    scheduler: State<'_, BackupScheduler>,
+    id:u32,
+)->Result<Vec<NasConfig>,String>{
+    // バックアップ中は設定変更を拒否
+    if scheduler.is_backup_running().await {
+        return Err("バックアップ実行中は設定を変更できません".to_string());
+    }
+
+    // 先にメモリ上の設定を更新
+    let deleted_nas_info = app_monitor.delete_nas(id).await
+        .ok_or("指定されたIDの検査機器が見つかりませんでした".to_string())?;
+
+    // メモリ上の更新が成功したらメモリの内容をファイルに保存
+    save_nas_settings(deleted_nas_info,"delete").await?;
+
+    //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
+    let nas_configs=app_monitor.get_nas_configs().await;
+
+    println!("{:?}",nas_configs);
+
+    Ok(nas_configs)
+
+}
 
 
 /// バックアップの状態を取得
@@ -131,7 +273,12 @@ fn main() {
         get_settings,
         update_settings,
         edit_insp_configs,
+        edit_nas_configs,
         change_insp_backup_settings,
+        add_insp_configs,
+        add_nas_configs,
+        delete_insp_configs,
+        delete_nas_configs,
         get_backup_status,
     ])
     .plugin(tauri_plugin_dialog::init())
