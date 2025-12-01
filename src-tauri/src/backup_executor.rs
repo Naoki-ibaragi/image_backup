@@ -1,9 +1,12 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
+use tauri::ipc::private::ResultTag;
 use tauri::{AppHandle, Emitter};
 use tokio::time::{sleep, Duration};
 use crate::types::{InspConfig, NasConfig, SettingsConfig, BackupResult, BackupProgress};
+use std::collections::HashMap;
+use walkdir::WalkDir;
 
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_SECS: u64 = 5;
@@ -83,16 +86,75 @@ impl BackupExecutor {
         println!("Active inspection devices: {}", active_insp_configs.len());
         println!("Active NAS devices: {}", active_nas_configs.len());
 
+        //何番目のnasを使用しているか.これがactive_nas_configs.len()になればErrを返す
+        let nas_count=0;
+
         // 各検査機器からバックアップを実行
         for insp_config in active_insp_configs {
             println!("Processing device: {}", insp_config.name);
 
-            // 各NASへバックアップ（冗長化のため）
+            //すべてのactive nasから対象の検査機器の面検査、裏面検査、idの全ファイルのフォルダ名と内部のファイル数を取得する
+            let mut nas_surface_image_all_list:HashMap<String, u32>=HashMap::new();
+            let mut nas_back_image_all_list:HashMap<String, u32>=HashMap::new();
+            let mut nas_result_file_all_list:HashMap<String, u32>=HashMap::new();
+
+            for nas_config in &active_nas_configs{
+                //表面検査
+                let dest_path = Self::build_dest_path(
+                    &nas_config.drive,
+                    &settings.surface_image_path,
+                    &insp_config.name,
+                );
+                Self::get_all_file_data(dest_path,&mut nas_surface_image_all_list);
+                
+                //裏面検査
+                let dest_path = Self::build_dest_path(
+                        &nas_config.drive,
+                        &settings.back_image_path,
+                    &insp_config.name,
+                );
+                Self::get_all_file_data(dest_path,&mut nas_back_image_all_list);
+                
+                //resultファイル
+                let dest_path = Self::build_dest_path(
+                    &nas_config.drive,
+                    &settings.result_file_path,
+                    &insp_config.name,
+                );
+                Self::get_all_file_data(dest_path,&mut nas_result_file_all_list);
+
+            }
+
+            //最初ののックアップに使用するnas_config
+            let nas_config=active_nas_configs[nas_count];
+
             for nas_config in &active_nas_configs {
                 println!("  Backing up to NAS: {}", nas_config.name);
 
                 // 表面画像のバックアップ（リトライ付き）
                 if !insp_config.surface_image_path.is_empty() {
+                    let entry_list=match fs::read_dir(folder_path){
+                        Ok(v)=>v,
+                        _=>return
+                    };
+
+                    for entry in entry_list {
+                        let entry=match entry{
+                            Ok(v)=>v,
+                            _=>continue
+                        };
+                        let metadata = match entry.metadata(){
+                            Ok(v)=>v,
+                            _=>continue
+                        };
+
+                        //各フォルダのファイル数を再帰的に取得する 
+                        if metadata.is_dir() {
+
+
+
+
+
                     let dest_path = Self::build_dest_path(
                         &nas_config.drive,
                         &settings.surface_image_path,
@@ -196,7 +258,7 @@ impl BackupExecutor {
         format!("{}:\\{}\\{}", drive_clean, base_path.trim_start_matches("\\"), device_name)
     }
 
-    //ベクトルを任意の値から開始する
+    ///ベクトルを任意の値から開始する
     fn rotate_to_value(vec: &[u32], value: u32) -> Option<Vec<u32>> {
     // 指定した値のインデックスを探す
         let pos = vec.iter().position(|&x| x == value)?;
@@ -212,6 +274,56 @@ impl BackupExecutor {
         Some(new_vec)
     }
 
+    ///フォルダ内の全フォルダに対してpath_nameとフォルダ内のファイル数のhashmapを作成する
+    fn get_all_file_data(folder_path:String,&mut all_file_map:HashMap<String,u32>){
+        //dest_path内の各ロット番号フォルダ一覧に対してフォルダ内のファイル数をhashmapに保存する 
+        let entry_list=match fs::read_dir(folder_path){
+            Ok(v)=>v,
+            _=>return
+        };
+
+        for entry in entry_list {
+            let entry=match entry{
+                Ok(v)=>v,
+                _=>continue
+            };
+            let metadata = match entry.metadata(){
+                Ok(v)=>v,
+                _=>continue
+            };
+
+            //各フォルダのファイル数を再帰的に取得する 
+            if metadata.is_dir() {
+                let mut count=0;
+                for entry in WalkDir::new(entry.path()).into_iter().filter_map(|e| e.ok()) {
+                    if entry.metadata().map(|m| m.is_file()).unwrap_or(false) {
+                        count += 1;
+                    }
+                }
+
+                if let Some(p)=entry.path().file_name(){
+                    all_file_map.entry(p.to_string_lossy().to_string()).or_insert(count);
+                }
+
+            }
+        }
+
+    }
+
+    ///パスのfilenameとファイル数一覧を返す
+    fn get_filename_and_filenum(folder_path:String)->Result<(String,u32),String>{
+        let mut count=0;
+        for entry in WalkDir::new(folder_path).into_iter().filter_map(|e| e.ok()) {
+            if entry.metadata().map(|m| m.is_file()).unwrap_or(false) {
+                count += 1;
+            }
+        }
+
+        if let Some(p)=entry.path().file_name(){
+            all_file_map.entry(p.to_string_lossy().to_string()).or_insert(count);
+        }
+    }
+    
     /// リトライ付きでディレクトリをコピー
     async fn copy_with_retry(
         source: &str,
