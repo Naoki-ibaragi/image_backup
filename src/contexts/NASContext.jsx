@@ -24,10 +24,11 @@ export const useNASContext = () => {
 export const NASProvider = ({ children }) => {
   const [nasList, setNasList] = useState([]); // LAN上のNAS一覧
   const [inspList, setInspList] = useState([]); // LAN上の外観検査機一覧
-  const [backupStartTime, setBackupStartTime] = useState('00:00') //バックアップ時刻設定
-  const [surfaceImageFolderPath, setSurfaceImageFolderPath] = useState('') //NAS内表面画像保存パス設定
-  const [backImageFolderPath, setBackImageFolderPath] = useState('') //NAS内裏面画像保存パス設定
-  const [resultFolderPath, setResultFolderPath] = useState('') //検査結果保存パス設定
+  const [backupStartTime, setBackupStartTime] = useState('00:00'); //バックアップ時刻設定
+  const [surfaceImageFolderPath, setSurfaceImageFolderPath] = useState(''); //NAS内表面画像保存パス設定
+  const [backImageFolderPath, setBackImageFolderPath] = useState(''); //NAS内裏面画像保存パス設定
+  const [resultFolderPath, setResultFolderPath] = useState(''); //検査結果保存パス設定
+  const [requiredFreeSpace, setRequiredFreeSpace] = useState(0); //バックアップ開始時最低限必要な容量
 
   // バックアップ状態管理
   const [isBackupRunning, setIsBackupRunning] = useState(false)
@@ -148,6 +149,8 @@ export const NASProvider = ({ children }) => {
         setBackImageFolderPath,
         resultFolderPath,
         setResultFolderPath,
+        requiredFreeSpace,
+        setRequiredFreeSpace,
         isBackupRunning,
         backupProgress,
         lastBackupDate

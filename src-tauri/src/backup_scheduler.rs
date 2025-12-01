@@ -16,16 +16,29 @@ pub struct BackupScheduler {
     app_monitor: AppMonitor,
     is_running: Arc<RwLock<bool>>,
     last_backup_date: Arc<RwLock<Option<String>>>,
+    last_backup_nas_id: Arc<RwLock<Option<u32>>>,
 }
 
 impl BackupScheduler {
     /// 新しいBackupSchedulerインスタンスを作成
-    pub fn new(settings_monitor: SettingsMonitor, app_monitor: AppMonitor) -> Self {
+    pub async fn new(&self,settings_monitor: SettingsMonitor, app_monitor: AppMonitor) -> Self {
+
+        // 使用可能で接続されているNASのみをフィルタ
+        let nas_configs = self.app_monitor.get_nas_configs().await;
+        let nas_ids: Vec<u32> = nas_configs
+            .iter()
+            .filter_map(|nas| if nas.is_use && nas.is_connected {Some(nas.id)} else {None})
+            .collect();
+
+        let mut target_nas_id=None;
+        if nas_ids.len()!=0{ target_nas_id=Some(nas_ids[0])};
+
         Self {
             settings_monitor,
             app_monitor,
             is_running: Arc::new(RwLock::new(false)),
             last_backup_date: Arc::new(RwLock::new(None)),
+            last_backup_nas_id:Arc::new(RwLock::new(target_nas_id))
         }
     }
 
@@ -89,6 +102,7 @@ impl BackupScheduler {
             nas_configs,
             settings,
             app_handle.clone(),
+        *self.last_backup_nas_id.read().await,
         ).await;
 
         // 実行中フラグを下ろす

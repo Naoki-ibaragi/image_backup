@@ -82,6 +82,7 @@ pub struct SettingsConfig{
     pub surface_image_path:String,
     pub back_image_path:String,
     pub result_file_path:String,
+    pub required_free_space:u64
 }
 
 /* バックアップ関連の型定義 */

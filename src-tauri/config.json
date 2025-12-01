@@ -48,10 +48,10 @@
         "nas_ip": "192.168.0.99"
       },
       {
-        "drive": "Q",
+        "drive": "Z",
         "id": 2,
         "name": "NAS2",
-        "nas_ip": "192.168.0.51"
+        "nas_ip": "10.1.64.25"
       },
       {
         "drive": "R",
@@ -70,6 +70,7 @@
   "settings": {
     "back_image_path": "/share/jpg/back",
     "backup_time": "07:00",
+    "required_free_space": 20,
     "result_file_path": "/share/result",
     "surface_image_path": "/share/jpg/surface"
   }

@@ -92,6 +92,7 @@ pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
         "surface_image_path": settings.surface_image_path,
         "back_image_path": settings.back_image_path,
         "result_file_path": settings.result_file_path,
+        "required_free_space": settings.required_free_space,
     });
 
     // ファイルに書き込む（インデント付き）

@@ -18,6 +18,7 @@ impl BackupExecutor {
         nas_configs: Vec<NasConfig>,
         settings: SettingsConfig,
         app_handle: AppHandle,
+        last_backup_nas_id:Option<u32>
     ) -> Result<BackupResult, String> {
         let start_time = Instant::now();
         let mut total_files = 0u64;
@@ -35,7 +36,7 @@ impl BackupExecutor {
             .collect();
 
         // 使用可能で接続されているNASのみをフィルタ
-        let active_nas_configs: Vec<&NasConfig> = nas_configs
+        let mut active_nas_configs: Vec<&NasConfig> = nas_configs
             .iter()
             .filter(|nas| nas.is_use && nas.is_connected)
             .collect();
@@ -47,6 +48,37 @@ impl BackupExecutor {
         if active_insp_configs.is_empty() {
             return Err("バックアップ対象の検査機器がありません".to_string());
         }
+
+        //last_backuped_nas情報から今回バックアップをリトライするNASの順序を確定する
+        let mut active_nas_ids: Vec<u32> = active_nas_configs
+            .iter()
+            .map(|nas| nas.id)
+            .collect();
+
+        active_nas_ids.sort();
+        let rotation_nas_ids = match last_backup_nas_id {
+            None => {
+                active_nas_ids
+            }
+            Some(v) => {
+                //rotation_nas_idsを作成
+                //ex:nas_id_list=[1,2,3,4] last_backup_nas_id=2 => rotation_nas_list=[2,3,4,1]とする
+                match Self::rotate_to_value(&active_nas_ids, v) {
+                    Some(vec) => vec,
+                    None => { //前回の最終nasidが無くなっていたときは若いidから再度始める
+                        active_nas_ids
+                    }
+                }
+            }
+        };
+
+        // active_nas_configsをrotation_nas_idsの順番で並び替え
+        active_nas_configs.sort_by_key(|nas| {
+            rotation_nas_ids
+                .iter()
+                .position(|&id| id == nas.id)
+                .unwrap_or(usize::MAX)
+        });
 
         println!("Active inspection devices: {}", active_insp_configs.len());
         println!("Active NAS devices: {}", active_nas_configs.len());
@@ -164,6 +196,22 @@ impl BackupExecutor {
         format!("{}:\\{}\\{}", drive_clean, base_path.trim_start_matches("\\"), device_name)
     }
 
+    //ベクトルを任意の値から開始する
+    fn rotate_to_value(vec: &[u32], value: u32) -> Option<Vec<u32>> {
+    // 指定した値のインデックスを探す
+        let pos = vec.iter().position(|&x| x == value)?;
+
+        // 新しい Vec を作成
+        let mut new_vec = Vec::with_capacity(vec.len());
+
+        // pos から最後まで
+        new_vec.extend_from_slice(&vec[pos..]);
+        // 先頭から pos まで
+        new_vec.extend_from_slice(&vec[..pos]);
+
+        Some(new_vec)
+    }
+
     /// リトライ付きでディレクトリをコピー
     async fn copy_with_retry(
         source: &str,
@@ -209,8 +257,8 @@ impl BackupExecutor {
         category: &str,
         app_handle: &AppHandle,
     ) -> Result<(u64, u64, u64, u64), String> {
-        let source_path = Path::new(source);
-        let dest_path = Path::new(dest);
+        let source_path = Path::new(source); //検査機器側のパス
+        let dest_path = Path::new(dest);     //NAS側のパス
 
         if !source_path.exists() {
             return Err(format!("ソースパスが存在しません: {}", source));
