@@ -1,7 +1,7 @@
 use std::fs;
+use std::fs::DirEntry;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
-use tauri::ipc::private::ResultTag;
 use tauri::{AppHandle, Emitter};
 use tokio::time::{sleep, Duration};
 use crate::types::{InspConfig, NasConfig, SettingsConfig, BackupResult, BackupProgress};
@@ -30,7 +30,7 @@ impl BackupExecutor {
         let mut total_size = 0u64;
         let mut errors = Vec::new();
 
-        println!("Starting backup process...");
+        log::info!("Starting backup process...");
 
         // バックアップ対象の検査機器のみをフィルタ
         let active_insp_configs: Vec<&InspConfig> = insp_configs
@@ -83,89 +83,68 @@ impl BackupExecutor {
                 .unwrap_or(usize::MAX)
         });
 
-        println!("Active inspection devices: {}", active_insp_configs.len());
-        println!("Active NAS devices: {}", active_nas_configs.len());
+        log::info!("Active inspection devices: {}", active_insp_configs.len());
+        log::info!("Active NAS devices: {}", active_nas_configs.len());
 
-        //何番目のnasを使用しているか.これがactive_nas_configs.len()になればErrを返す
-        let nas_count=0;
+        // 現在使用中のNASインデックス (容量不足時に切り替え)
+        let mut nas_index = 0usize;
 
         // 各検査機器からバックアップを実行
         for insp_config in active_insp_configs {
-            println!("Processing device: {}", insp_config.name);
+            log::info!("Processing device: {}", insp_config.name);
 
-            //すべてのactive nasから対象の検査機器の面検査、裏面検査、idの全ファイルのフォルダ名と内部のファイル数を取得する
-            let mut nas_surface_image_all_list:HashMap<String, u32>=HashMap::new();
-            let mut nas_back_image_all_list:HashMap<String, u32>=HashMap::new();
-            let mut nas_result_file_all_list:HashMap<String, u32>=HashMap::new();
+            // すべてのNASから既存データを収集（重複チェック用）
+            let nas_surface_image_map = Self::collect_all_nas_folder_data(
+                &active_nas_configs,
+                &settings.surface_image_path,
+                &insp_config.name,
+            );
+            let nas_back_image_map = Self::collect_all_nas_folder_data(
+                &active_nas_configs,
+                &settings.back_image_path,
+                &insp_config.name,
+            );
+            let nas_result_file_map = Self::collect_all_nas_folder_data(
+                &active_nas_configs,
+                &settings.result_file_path,
+                &insp_config.name,
+            );
 
-            for nas_config in &active_nas_configs{
-                //表面検査
-                let dest_path = Self::build_dest_path(
-                    &nas_config.drive,
-                    &settings.surface_image_path,
-                    &insp_config.name,
-                );
-                Self::get_all_file_data(dest_path,&mut nas_surface_image_all_list);
-                
-                //裏面検査
-                let dest_path = Self::build_dest_path(
-                        &nas_config.drive,
-                        &settings.back_image_path,
-                    &insp_config.name,
-                );
-                Self::get_all_file_data(dest_path,&mut nas_back_image_all_list);
-                
-                //resultファイル
-                let dest_path = Self::build_dest_path(
-                    &nas_config.drive,
-                    &settings.result_file_path,
-                    &insp_config.name,
-                );
-                Self::get_all_file_data(dest_path,&mut nas_result_file_all_list);
+            // バックアップ処理（NAS容量チェック付き）
+            loop {
+                // NAS容量チェック
+                if nas_index >= active_nas_configs.len() {
+                    return Err(format!(
+                        "すべてのNASで容量不足です。バックアップを中断しました。(検査機器: {})",
+                        insp_config.name
+                    ));
+                }
 
-            }
+                let nas_config = active_nas_configs[nas_index];
+                log::info!("  Backing up to NAS: {} (Index: {})", nas_config.name, nas_index);
 
-            //最初ののックアップに使用するnas_config
-            let nas_config=active_nas_configs[nas_count];
+                // NASの空き容量をチェック
+                if nas_config.free_space < settings.required_free_space {
+                    log::warn!(
+                        "  NAS {} の空き容量不足: {} < {} (required). 次のNASに切り替えます...",
+                        nas_config.name,
+                        nas_config.free_space,
+                        settings.required_free_space
+                    );
+                    nas_index += 1;
+                    continue; // 次のNASへ
+                }
 
-            for nas_config in &active_nas_configs {
-                println!("  Backing up to NAS: {}", nas_config.name);
-
-                // 表面画像のバックアップ（リトライ付き）
+                // 表面画像のバックアップ（差分のみ）
                 if !insp_config.surface_image_path.is_empty() {
-                    let entry_list=match fs::read_dir(folder_path){
-                        Ok(v)=>v,
-                        _=>return
-                    };
-
-                    for entry in entry_list {
-                        let entry=match entry{
-                            Ok(v)=>v,
-                            _=>continue
-                        };
-                        let metadata = match entry.metadata(){
-                            Ok(v)=>v,
-                            _=>continue
-                        };
-
-                        //各フォルダのファイル数を再帰的に取得する 
-                        if metadata.is_dir() {
-
-
-
-
-
-                    let dest_path = Self::build_dest_path(
+                    match Self::backup_folder_with_diff(
+                        &insp_config.insp_ip,
+                        &insp_config.surface_image_path,
                         &nas_config.drive,
                         &settings.surface_image_path,
                         &insp_config.name,
-                    );
-
-                    match Self::copy_with_retry(
-                        &insp_config.surface_image_path,
-                        &dest_path,
-                        &insp_config.name,
                         "表面画像",
+                        &nas_surface_image_map,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -180,19 +159,16 @@ impl BackupExecutor {
                     }
                 }
 
-                // 裏面画像のバックアップ（リトライ付き）
+                // 裏面画像のバックアップ（差分のみ）
                 if !insp_config.back_image_path.is_empty() {
-                    let dest_path = Self::build_dest_path(
+                    match Self::backup_folder_with_diff(
+                        &insp_config.insp_ip,
+                        &insp_config.back_image_path,
                         &nas_config.drive,
                         &settings.back_image_path,
                         &insp_config.name,
-                    );
-
-                    match Self::copy_with_retry(
-                        &insp_config.back_image_path,
-                        &dest_path,
-                        &insp_config.name,
                         "裏面画像",
+                        &nas_back_image_map,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -207,19 +183,16 @@ impl BackupExecutor {
                     }
                 }
 
-                // 結果ファイルのバックアップ（リトライ付き）
+                // 結果ファイルのバックアップ（差分のみ）
                 if !insp_config.result_path.is_empty() {
-                    let dest_path = Self::build_dest_path(
+                    match Self::backup_folder_with_diff(
+                        &insp_config.insp_ip,
+                        &insp_config.result_path,
                         &nas_config.drive,
                         &settings.result_file_path,
                         &insp_config.name,
-                    );
-
-                    match Self::copy_with_retry(
-                        &insp_config.result_path,
-                        &dest_path,
-                        &insp_config.name,
                         "結果ファイル",
+                        &nas_result_file_map,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -233,13 +206,17 @@ impl BackupExecutor {
                         }
                     }
                 }
+
+                // このNASへのバックアップ成功、次の検査機器へ
+                log::info!("  NAS {} へのバックアップ完了", nas_config.name);
+                break;
             }
         }
 
         let duration = start_time.elapsed().as_secs();
         let success = failed_files == 0 && errors.is_empty();
 
-        println!("Backup completed: {} files copied, {} failed", copied_files, failed_files);
+        log::info!("Backup completed: {} files copied, {} failed", copied_files, failed_files);
 
         Ok(BackupResult {
             success,
@@ -274,8 +251,28 @@ impl BackupExecutor {
         Some(new_vec)
     }
 
+    /// すべてのNASから既存フォルダデータを収集する（重複チェック用）
+    fn collect_all_nas_folder_data(
+        nas_configs: &[&NasConfig],
+        base_path: &str,
+        device_name: &str,
+    ) -> HashMap<String, u32> {
+        let mut all_file_map = HashMap::new();
+
+        for nas_config in nas_configs {
+            let dest_path = Self::build_dest_path(
+                &nas_config.drive,
+                base_path,
+                device_name,
+            );
+            Self::get_all_file_data(dest_path, &mut all_file_map);
+        }
+
+        all_file_map
+    }
+
     ///フォルダ内の全フォルダに対してpath_nameとフォルダ内のファイル数のhashmapを作成する
-    fn get_all_file_data(folder_path:String,&mut all_file_map:HashMap<String,u32>){
+    fn get_all_file_data(folder_path:String,all_file_map: &mut HashMap<String,u32>){
         //dest_path内の各ロット番号フォルダ一覧に対してフォルダ内のファイル数をhashmapに保存する 
         let entry_list=match fs::read_dir(folder_path){
             Ok(v)=>v,
@@ -292,7 +289,7 @@ impl BackupExecutor {
                 _=>continue
             };
 
-            //各フォルダのファイル数を再帰的に取得する 
+            //NASの各ロット名フォルダ内のファイル数を再帰的に取得する 
             if metadata.is_dir() {
                 let mut count=0;
                 for entry in WalkDir::new(entry.path()).into_iter().filter_map(|e| e.ok()) {
@@ -310,23 +307,132 @@ impl BackupExecutor {
 
     }
 
-    ///パスのfilenameとファイル数一覧を返す
-    fn get_filename_and_filenum(folder_path:String)->Result<(String,u32),String>{
-        let mut count=0;
-        for entry in WalkDir::new(folder_path).into_iter().filter_map(|e| e.ok()) {
-            if entry.metadata().map(|m| m.is_file()).unwrap_or(false) {
-                count += 1;
+    /// 差分バックアップを実行（既にNASにあるフォルダはスキップ）
+    async fn backup_folder_with_diff(
+        insp_ip: &str,
+        source_relative_path: &str,
+        nas_drive: &str,
+        nas_base_path: &str,
+        device_name: &str,
+        category: &str,
+        existing_folders: &HashMap<String, u32>,
+        app_handle: &AppHandle,
+    ) -> Result<(u64, u64, u64, u64), String> {
+        // 検査機器側のソースパスを構築
+        let mut source_path = PathBuf::new();
+        source_path.push(format!("\\\\{}", insp_ip)); // UNCパス形式
+        source_path.push(source_relative_path);
+
+        // NAS側のコピー先パスを取得
+        let dest_path = Self::build_dest_path(nas_drive, nas_base_path, device_name);
+
+        log::debug!("ソースパス: {}", source_path.display());
+        log::debug!("コピー先パス: {}", dest_path);
+
+        let mut total_files = 0u64;
+        let mut copied_files = 0u64;
+        let mut failed_files = 0u64;
+        let mut total_size = 0u64;
+
+        // ソースフォルダ内のエントリを読み込み
+        let entries = match fs::read_dir(&source_path) {
+            Ok(entries) => entries,
+            Err(e) => {
+                return Err(format!(
+                    "ソースパス読み込みエラー {}: {}",
+                    source_path.display(),
+                    e
+                ));
+            }
+        };
+
+        // フォルダ単位でコピーするかチェックしながら進める
+        for entry_result in entries {
+            let entry = match entry_result {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+
+            let metadata = match entry.metadata() {
+                Ok(v) => v,
+                Err(_) => continue,
+            };
+
+            // ファイルはスキップ（フォルダのみ処理）
+            if metadata.is_file() {
+                continue;
+            }
+
+            // 既にNASにあるデータかチェック（ファイル数が一致すればスキップ）
+            if !Self::should_copy_folder(&entry, existing_folders) {
+                log::debug!(
+                    "    スキップ: {} (既にNASに存在)",
+                    entry.file_name().to_string_lossy()
+                );
+                continue;
+            }
+
+            // entry単位でコピーする
+            match Self::copy_with_retry(&entry, &dest_path, device_name, category, app_handle).await
+            {
+                Ok(stats) => {
+                    total_files += stats.0;
+                    copied_files += stats.1;
+                    failed_files += stats.2;
+                    total_size += stats.3;
+                }
+                Err(e) => {
+                    failed_files += 1;
+                    log::error!(
+                        "フォルダコピー失敗: {} - {}",
+                        entry.file_name().to_string_lossy(),
+                        e
+                    );
+                }
             }
         }
 
-        if let Some(p)=entry.path().file_name(){
-            all_file_map.entry(p.to_string_lossy().to_string()).or_insert(count);
+        Ok((total_files, copied_files, failed_files, total_size))
+    }
+
+    /// フォルダをコピーすべきかチェック
+    /// 戻り値: true = コピーする, false = スキップする
+    fn should_copy_folder(entry: &DirEntry, nas_data_hashmap: &HashMap<String, u32>) -> bool {
+        //検査機器側のコピー元ロット番号名フォルダ
+        let folder_name = entry.file_name().to_string_lossy().to_string();
+
+        // entry内のファイル数を取得
+        let file_count = WalkDir::new(entry.path())
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.metadata().map(|m| m.is_file()).unwrap_or(false))
+            .count() as u32;
+
+        // NASに既に存在するかチェック
+        match nas_data_hashmap.get(&folder_name) {
+            Some(&nas_file_count) => {
+                // ファイル数が一致する場合はスキップ（既にバックアップ済み）
+                if nas_file_count == file_count {
+                    false // スキップ
+                } else {
+                    // ファイル数が違う場合はコピー（更新が必要）
+                    log::info!(
+                        "    ファイル数不一致: {} (NAS: {}, 検査機器: {})",
+                        folder_name, nas_file_count, file_count
+                    );
+                    true // コピーする
+                }
+            }
+            None => {
+                // NASに存在しない場合はコピー
+                true // コピーする
+            }
         }
     }
     
     /// リトライ付きでディレクトリをコピー
     async fn copy_with_retry(
-        source: &str,
+        entry:&DirEntry,
         dest: &str,
         device_name: &str,
         category: &str,
@@ -335,22 +441,22 @@ impl BackupExecutor {
         let mut last_error = String::new();
 
         for attempt in 1..=MAX_RETRIES {
-            match Self::copy_directory(source, dest, device_name, category, app_handle).await {
+            match Self::copy_directory(entry, dest,device_name, category, app_handle).await {
                 Ok(result) => {
                     if attempt > 1 {
-                        println!("  リトライ成功 (試行 {}/{}): {} - {}", attempt, MAX_RETRIES, device_name, category);
+                        log::info!("  リトライ成功 (試行 {}/{}): {} - {}", attempt, MAX_RETRIES, device_name, category);
                     }
                     return Ok(result);
                 }
                 Err(e) => {
                     last_error = e.clone();
                     if attempt < MAX_RETRIES {
-                        println!("  コピー失敗 (試行 {}/{}): {} - {} - エラー: {}",
+                        log::warn!("  コピー失敗 (試行 {}/{}): {} - {} - エラー: {}",
                             attempt, MAX_RETRIES, device_name, category, e);
-                        println!("  {}秒後にリトライします...", RETRY_DELAY_SECS);
+                        log::info!("  {}秒後にリトライします...", RETRY_DELAY_SECS);
                         sleep(Duration::from_secs(RETRY_DELAY_SECS)).await;
                     } else {
-                        println!("  コピー失敗 (最終試行): {} - {} - エラー: {}",
+                        log::error!("  コピー失敗 (最終試行): {} - {} - エラー: {}",
                             device_name, category, e);
                     }
                 }
@@ -363,22 +469,23 @@ impl BackupExecutor {
     /// ディレクトリを再帰的にコピー
     /// 戻り値: (total_files, copied_files, failed_files, total_size)
     async fn copy_directory(
-        source: &str,
+        entry:&DirEntry,
         dest: &str,
         device_name: &str,
         category: &str,
         app_handle: &AppHandle,
     ) -> Result<(u64, u64, u64, u64), String> {
-        let source_path = Path::new(source); //検査機器側のパス
-        let dest_path = Path::new(dest);     //NAS側のパス
+        let mut dest_path = PathBuf::new();     //NAS側のパス
+        dest_path.push(dest);
+        dest_path.push(entry.file_name().to_string_lossy().to_string());
 
-        if !source_path.exists() {
-            return Err(format!("ソースパスが存在しません: {}", source));
+        if !entry.path().exists() {
+            return Err(format!("検査機器側のコピー元フォルダが存在しません: {}", entry.path().to_string_lossy().to_string()));
         }
 
         // コピー先ディレクトリを作成
-        fs::create_dir_all(dest_path)
-            .map_err(|e| format!("ディレクトリ作成エラー {}: {}", dest, e))?;
+        fs::create_dir_all(&dest_path)
+            .map_err(|e| format!("ディレクトリ作成エラー {}: {}", dest_path.display(), e))?;
 
         let mut total_files = 0u64;
         let mut copied_files = 0u64;
@@ -386,9 +493,9 @@ impl BackupExecutor {
         let mut total_size = 0u64;
 
         // ディレクトリ内のファイルをコピー
-        Self::copy_dir_recursive(
-            source_path,
-            dest_path,
+        Self::copy_files_recursive(
+            entry.path().as_path(),
+            dest_path.as_path(),
             device_name,
             category,
             app_handle,
@@ -402,7 +509,7 @@ impl BackupExecutor {
     }
 
     /// ディレクトリを再帰的にコピー（内部実装）
-    fn copy_dir_recursive(
+    fn copy_files_recursive(
         source: &Path,
         dest: &Path,
         device_name: &str,
@@ -425,10 +532,11 @@ impl BackupExecutor {
                 let dest_path = dest.join(&file_name);
 
                 if source_path.is_dir() {
+                    //ロット番号名フォルダの中にさらにフォルダがある場合、それをNASにも作成
                     fs::create_dir_all(&dest_path)
                         .map_err(|e| format!("ディレクトリ作成エラー {}: {}", dest_path.display(), e))?;
 
-                    Self::copy_dir_recursive(
+                    Self::copy_files_recursive(
                         &source_path,
                         &dest_path,
                         device_name,
@@ -463,7 +571,7 @@ impl BackupExecutor {
                         }
                         Err(e) => {
                             *failed_files += 1;
-                            eprintln!("ファイルコピー失敗 {} -> {}: {}",
+                            log::error!("ファイルコピー失敗 {} -> {}: {}",
                                 source_path.display(), dest_path.display(), e);
                         }
                     }

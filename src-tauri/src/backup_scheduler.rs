@@ -21,10 +21,10 @@ pub struct BackupScheduler {
 
 impl BackupScheduler {
     /// 新しいBackupSchedulerインスタンスを作成
-    pub async fn new(&self,settings_monitor: SettingsMonitor, app_monitor: AppMonitor) -> Self {
+    pub async fn new(settings_monitor: SettingsMonitor, app_monitor: AppMonitor) -> Self {
 
         // 使用可能で接続されているNASのみをフィルタ
-        let nas_configs = self.app_monitor.get_nas_configs().await;
+        let nas_configs = app_monitor.get_nas_configs().await;
         let nas_ids: Vec<u32> = nas_configs
             .iter()
             .filter_map(|nas| if nas.is_use && nas.is_connected {Some(nas.id)} else {None})
@@ -69,10 +69,10 @@ impl BackupScheduler {
 
                 // 時刻が一致し、今日未実行の場合にバックアップ開始
                 if current_time == backup_time && !already_backed_up_today {
-                    println!("Backup time reached: {} - Starting backup...", current_time);
+                    log::info!("Backup time reached: {} - Starting backup...", current_time);
 
                     if let Err(e) = self.execute_backup(app_handle.clone()).await {
-                        eprintln!("Backup failed: {}", e);
+                        log::error!("Backup failed: {}", e);
                         let _ = app_handle.emit("backup-failed", e);
                     }
                 }
@@ -85,7 +85,7 @@ impl BackupScheduler {
         // 実行中フラグを立てる
         *self.is_running.write().await = true;
 
-        println!("Starting backup execution...");
+        log::info!("Starting backup execution...");
 
         // 開始イベントを通知
         let start_time = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
@@ -114,12 +114,12 @@ impl BackupScheduler {
                 let current_date = Local::now().format("%Y-%m-%d").to_string();
                 *self.last_backup_date.write().await = Some(current_date);
 
-                println!("Backup completed successfully: {:?}", backup_result);
+                log::info!("Backup completed successfully: {:?}", backup_result);
                 let _ = app_handle.emit("backup-completed", backup_result);
                 Ok(())
             }
             Err(e) => {
-                eprintln!("Backup execution error: {}", e);
+                log::error!("Backup execution error: {}", e);
                 Err(e)
             }
         }

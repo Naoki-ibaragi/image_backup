@@ -14,6 +14,7 @@ use tauri::menu::MenuBuilder;
 use tauri::Manager;
 
 use tauri_plugin_dialog::{DialogExt,MessageDialogKind};
+use tauri_plugin_log::{fern, Target, TargetKind};
 use tauri_plugin_single_instance::init as single_instance;
 
 use config::{init_info, save_settings, save_insp_settings, save_nas_settings,save_insp_backup_setting};
@@ -22,6 +23,7 @@ use settings_monitor::SettingsMonitor;
 use backup_scheduler::BackupScheduler;
 use crate::types::{NasConfig, InspConfig, SettingsConfig, BackupStatus,InspInfo,NasInfo};
 use tauri::{command, State};
+
 
 /// NASの現在の状態を取得
 #[command]
@@ -107,7 +109,7 @@ async fn edit_nas_configs(
     //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
     let nas_configs=app_monitor.get_nas_configs().await;
 
-    println!("{:?}",nas_configs);
+    log::debug!("{:?}",nas_configs);
 
     Ok(nas_configs)
 }
@@ -165,7 +167,7 @@ async fn add_insp_configs(
     let add_insp_info:InspInfo=InspInfo { id: new_id, name, insp_ip, surface_image_path, back_image_path, result_path, is_backup:true };
     save_insp_settings(add_insp_info,"add").await?;
 
-    println!("{:?}",insp_configs);
+    log::debug!("{:?}",insp_configs);
 
     Ok(insp_configs)
 }
@@ -195,7 +197,7 @@ async fn add_nas_configs(
     let add_nas_info:NasInfo=NasInfo { id: new_id, name, nas_ip,drive};
     save_nas_settings(add_nas_info,"add").await?;
 
-    println!("{:?}",nas_configs);
+    log::debug!("{:?}",nas_configs);
 
     Ok(nas_configs)
 }
@@ -223,7 +225,7 @@ async fn delete_insp_configs(
     //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
     let insp_configs=app_monitor.get_insp_configs().await;
 
-    println!("{:?}",insp_configs);
+    log::debug!("{:?}",insp_configs);
 
     Ok(insp_configs)
 
@@ -251,7 +253,7 @@ async fn delete_nas_configs(
     //バックエンドとフロントエンドの状況の乖離が生じないように最新のinsp_configsを取得
     let nas_configs=app_monitor.get_nas_configs().await;
 
-    println!("{:?}",nas_configs);
+    log::debug!("{:?}",nas_configs);
 
     Ok(nas_configs)
 
@@ -289,7 +291,27 @@ fn main() {
             let _ = window.set_focus();
         }
     }))
+    .plugin(
+        tauri_plugin_log::Builder::new()
+            .targets([
+                Target::new(TargetKind::Stdout),
+                Target::new(TargetKind::Dispatch(
+                    fern::Dispatch::new().chain(
+                        fern::DateBased::new("logs/", "%Y-%m-%d.log")
+                    )
+                )),
+            ])
+            .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
+            .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
+            .level(log::LevelFilter::Debug)
+            .build(),
+    )
     .setup(|app|{
+        // ログディレクトリを作成
+        if let Err(e) = std::fs::create_dir_all("logs") {
+            log::error!("Failed to create logs directory: {}", e);
+        }
+
         // 初期設定を読み込んでアプリケーション監視を開始
         let app_handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
@@ -303,7 +325,7 @@ fn main() {
                     let backup_scheduler = BackupScheduler::new(
                         settings_monitor.clone(),
                         app_monitor.clone()
-                    );
+                    ).await;
 
                     // グローバル状態として管理
                     app_handle.manage(app_monitor.clone());
@@ -316,10 +338,10 @@ fn main() {
                     // バックアップスケジューラを開始
                     backup_scheduler.start_scheduling(app_handle.clone());
 
-                    println!("Application monitoring and backup scheduler started successfully");
+                    log::info!("Application monitoring and backup scheduler started successfully");
                 }
                 Err(e) => {
-                    eprintln!("Failed to initialize application monitoring: {}", e);
+                    log::error!("Failed to initialize application monitoring: {}", e);
                 }
             }
         });
@@ -347,11 +369,12 @@ fn main() {
                     });
                 },
                 _ => {
-                    println!("unexpected menu event");
+                    log::warn!("unexpected menu event");
                 }
             }
         });
 
+        log::info!("アプリを起動しました");
         Ok(())
 
     })

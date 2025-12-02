@@ -2,7 +2,6 @@ use std::fs;
 use std::path::PathBuf;
 use tauri::command;
 use serde_json::{Value, json};
-use std::collections::HashMap;
 
 //独自クレートのimport
 use crate::types::{NasInfos,InspInfos,NasConfig,InspConfig,Configs,SettingsConfig,InspInfo,NasInfo};
@@ -12,14 +11,15 @@ use crate::app_monitor::{check_nas_connection};
 #[command]
 pub async fn init_info() -> Result<(Configs,SettingsConfig), String> {
     // 実行ファイルのディレクトリからconfig.jsonを読み込む
+    log::info!("config.jsonから初期設定読み込み");
     let config_path = get_config_path()?;
 
     // デバッグ用: パスを出力
-    println!("Trying to read config from: {:?}", config_path);
+    log::debug!("Trying to read config from: {:?}", config_path);
 
     // ファイルを読み込む
     let config_content = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+        .map_err(|e| {format!("Failed to read config file at {:?}: {}", config_path, e)})?;
 
     // valueで受け取る
     let value:Value = serde_json::from_str(&config_content)
@@ -102,7 +102,7 @@ pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
     fs::write(&config_path, updated_content)
         .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
 
-    println!("Settings saved successfully to {:?}", config_path);
+    log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
 }
 
@@ -156,7 +156,7 @@ pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), Strin
     fs::write(&config_path, updated_content)
         .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
 
-    println!("Settings saved successfully to {:?}", config_path);
+    log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
 }
 
@@ -207,7 +207,7 @@ pub async fn save_nas_settings(nas: NasInfo,keyword:&str) -> Result<(), String> 
     fs::write(&config_path, updated_content)
         .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
 
-    println!("Settings saved successfully to {:?}", config_path);
+    log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
 }
 
@@ -247,7 +247,7 @@ pub async fn save_insp_backup_setting(insp_id: u32, is_backup: bool) -> Result<(
     fs::write(&config_path, updated_content)
         .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
 
-    println!("Backup setting saved successfully to {:?}", config_path);
+    log::info!("Backup setting saved successfully to {:?}", config_path);
     Ok(())
 }
 
@@ -259,7 +259,7 @@ fn get_config_path()->Result<PathBuf,String>{
         let current = std::env::current_dir()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
 
-        println!("Current directory: {:?}", current);
+        log::debug!("Current directory: {:?}", current);
 
         // src-tauriディレクトリにいる場合は、そのままconfig.jsonを探す
         let mut path = current.clone();

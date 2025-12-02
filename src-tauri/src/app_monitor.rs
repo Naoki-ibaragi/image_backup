@@ -34,13 +34,13 @@ impl AppMonitor {
 
                 // NAS状態を更新
                 if let Err(e) = self.update_nas_status().await {
-                    eprintln!("Failed to update NAS status: {}", e);
+                    log::error!("Failed to update NAS status: {}", e);
                 }
 
                 // フロントエンドに更新を通知
                 let nas_configs = self.nas_configs.read().await;
                 if let Err(e) = app_handle.emit("nas-status-updated", nas_configs.clone()) {
-                    eprintln!("Failed to emit nas-status-updated event: {}", e);
+                    log::error!("Failed to emit nas-status-updated event: {}", e);
                 }
 
             }
@@ -62,7 +62,7 @@ impl AppMonitor {
                     config.used_space = space_info.used;
                     config.free_space = space_info.free;
                 } else {
-                    println!("Warning: Could not get space info for drive {}", config.drive);
+                    log::warn!("Could not get space info for drive {}", config.drive);
                 }
             } else {
                 // 接続できていない場合は容量を0にリセット
@@ -312,7 +312,7 @@ fn get_drive_space_info_windows(drive_path: &str) -> Result<DriveSpaceInfo, Stri
         if result.is_ok() {
             let used = total_bytes.saturating_sub(total_free_bytes);
 
-            println!("Drive {} - Total: {} bytes, Free: {} bytes, Used: {} bytes",
+            log::debug!("Drive {} - Total: {} bytes, Free: {} bytes, Used: {} bytes",
                      drive_path, total_bytes, total_free_bytes, used);
 
             Ok(DriveSpaceInfo {
