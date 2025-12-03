@@ -168,11 +168,6 @@ export default function INSPCard({insp}) {
               <p className="text-black font-mono">{insp.result_path}</p>
             </div>
 
-            <div>
-              <p className="text-sm text-gray-400 mb-1">最終バックアップ完了時刻</p>
-              <p className="text-black">{insp.lastBackuped}</p>
-            </div>
-
             {/* 情報編集ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button

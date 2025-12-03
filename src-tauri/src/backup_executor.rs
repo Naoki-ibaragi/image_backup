@@ -319,14 +319,20 @@ impl BackupExecutor {
         app_handle: &AppHandle,
     ) -> Result<(u64, u64, u64, u64), String> {
         // 検査機器側のソースパスを構築
+        // source_relative_pathの先頭の/や\を取り除く
+        let clean_relative_path = source_relative_path
+            .trim_start_matches('/')
+            .trim_start_matches('\\');
+
         let mut source_path = PathBuf::new();
         source_path.push(format!("\\\\{}", insp_ip)); // UNCパス形式
-        source_path.push(source_relative_path);
+        source_path.push(clean_relative_path);
 
         // NAS側のコピー先パスを取得
         let dest_path = Self::build_dest_path(nas_drive, nas_base_path, device_name);
 
-        log::debug!("ソースパス: {}", source_path.display());
+        log::debug!("insp_ip(コピー元IP): {}", insp_ip);
+        log::debug!("コピー元パス: {}", source_path.display());
         log::debug!("コピー先パス: {}", dest_path);
 
         let mut total_files = 0u64;
@@ -339,7 +345,7 @@ impl BackupExecutor {
             Ok(entries) => entries,
             Err(e) => {
                 return Err(format!(
-                    "ソースパス読み込みエラー {}: {}",
+                    "コピー元パス読み込みエラー {}: {}",
                     source_path.display(),
                     e
                 ));

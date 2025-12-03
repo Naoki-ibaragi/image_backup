@@ -2,13 +2,13 @@
   "insp_units": {
     "insps": [
       {
-        "back_image_path": "/home/image",
+        "back_image_path": "/share/jpg/back",
         "id": 2,
-        "insp_ip": "127.0.0.1",
+        "insp_ip": "192.168.0.151",
         "is_backup": true,
-        "name": "CLT6",
-        "result_path": "/home/result",
-        "surface_image_path": "/home/image"
+        "name": "TEST",
+        "result_path": "/share/result",
+        "surface_image_path": "/share/jpg/surface"
       },
       {
         "back_image_path": "/home/image",
@@ -42,16 +42,10 @@
   "nas_units": {
     "nass": [
       {
-        "drive": "P",
+        "drive": "A",
         "id": 1,
         "name": "NAS1",
-        "nas_ip": "192.168.0.99"
-      },
-      {
-        "drive": "Z",
-        "id": 2,
-        "name": "NAS2",
-        "nas_ip": "10.1.64.25"
+        "nas_ip": "192.168.0.150"
       },
       {
         "drive": "R",
@@ -68,10 +62,10 @@
     ]
   },
   "settings": {
-    "back_image_path": "/share/jpg/back",
-    "backup_time": "07:00",
+    "back_image_path": "/jpg/back",
+    "backup_time": "17:14",
     "required_free_space": 20,
-    "result_file_path": "/share/result",
-    "surface_image_path": "/share/jpg/surface"
+    "result_file_path": "/result",
+    "surface_image_path": "/jpg/surface"
   }
 }

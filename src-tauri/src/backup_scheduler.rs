@@ -68,12 +68,15 @@ impl BackupScheduler {
                 let already_backed_up_today = last_backup.as_ref() == Some(&current_date);
 
                 // 時刻が一致し、今日未実行の場合にバックアップ開始
-                if current_time == backup_time && !already_backed_up_today {
+                //デバッグ時1日1回バックアップの制限外す
+                //if current_time == backup_time && !already_backed_up_today { 
+                if current_time == backup_time{
                     log::info!("Backup time reached: {} - Starting backup...", current_time);
 
                     if let Err(e) = self.execute_backup(app_handle.clone()).await {
+                        let end_time = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
                         log::error!("Backup failed: {}", e);
-                        let _ = app_handle.emit("backup-failed", e);
+                        let _ = app_handle.emit("backup-failed", (e,end_time));
                     }
                 }
             }
@@ -114,8 +117,9 @@ impl BackupScheduler {
                 let current_date = Local::now().format("%Y-%m-%d").to_string();
                 *self.last_backup_date.write().await = Some(current_date);
 
+                let end_time = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
                 log::info!("Backup completed successfully: {:?}", backup_result);
-                let _ = app_handle.emit("backup-completed", backup_result);
+                let _ = app_handle.emit("backup-completed", (backup_result,end_time));
                 Ok(())
             }
             Err(e) => {

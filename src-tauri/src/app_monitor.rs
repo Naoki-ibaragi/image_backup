@@ -2,7 +2,6 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::{interval, Duration};
 use tauri::{AppHandle, Emitter};
-use sysinfo::Disks;
 use std::net::TcpStream;
 use std::time::Duration as StdDuration;
 use crate::types::{NasConfig, InspConfig,InspInfo,NasInfo};
@@ -311,9 +310,6 @@ fn get_drive_space_info_windows(drive_path: &str) -> Result<DriveSpaceInfo, Stri
 
         if result.is_ok() {
             let used = total_bytes.saturating_sub(total_free_bytes);
-
-            log::debug!("Drive {} - Total: {} bytes, Free: {} bytes, Used: {} bytes",
-                     drive_path, total_bytes, total_free_bytes, used);
 
             Ok(DriveSpaceInfo {
                 total: total_bytes,

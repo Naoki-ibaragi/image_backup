@@ -29,6 +29,7 @@ export const NASProvider = ({ children }) => {
   const [backImageFolderPath, setBackImageFolderPath] = useState(''); //NAS内裏面画像保存パス設定
   const [resultFolderPath, setResultFolderPath] = useState(''); //検査結果保存パス設定
   const [requiredFreeSpace, setRequiredFreeSpace] = useState(0); //バックアップ開始時最低限必要な容量
+  const [historyList,setHistoryList]=useState([]); //バックアップ処理履歴
 
   // バックアップ状態管理
   const [isBackupRunning, setIsBackupRunning] = useState(false)
@@ -39,6 +40,7 @@ export const NASProvider = ({ children }) => {
   useEffect(() => {
     let unlistenStarted, unlistenProgress, unlistenCompleted, unlistenFailed
     let unlistenMessage, unlistenNasStatus
+    let currentBackupStartDate = ""; // クロージャ問題を回避するためのローカル変数
 
     const setupListeners = async () => {
       try {
@@ -91,6 +93,7 @@ export const NASProvider = ({ children }) => {
         // バックアップ開始
         unlistenStarted = await listen('backup-started', (event) => {
           console.log('Backup started:', event.payload)
+          currentBackupStartDate = event.payload; // ローカル変数に保存
           setIsBackupRunning(true)
           setBackupProgress(null)
         })
@@ -106,6 +109,26 @@ export const NASProvider = ({ children }) => {
           console.log('Backup completed:', event.payload)
           setIsBackupRunning(false)
           setBackupProgress(null)
+
+          //バックアップ履歴を残す（最大20件）
+          setHistoryList((prev) => {
+            const newHistory = {
+              "complete": true,
+              "start_date": currentBackupStartDate, // ローカル変数を使用
+              "end_date":event.payload[1],
+              "success": event.payload[0].success,
+              "total_files": event.payload[0].total_files,
+              "copied_files": event.payload[0].copied_files,
+              "failed_files": event.payload[0].failed_files,
+              "total_size_bytes": event.payload[0].total_size_bytes,
+              "duration_secs": event.payload[0].duration_secs,
+              "errors": event.payload[0].errors,
+            };
+            const updatedList = [...prev, newHistory];
+            // 20件を超える場合は最初の要素を削除
+            return updatedList.length > 20 ? updatedList.slice(1) : updatedList;
+          })
+
           setLastBackupDate(new Date().toISOString())
         })
 
@@ -114,6 +137,25 @@ export const NASProvider = ({ children }) => {
           console.error('Backup failed:', event.payload)
           setIsBackupRunning(false)
           setBackupProgress(null)
+          //バックアップ履歴を残す（最大20件）
+          setHistoryList((prev) => {
+            const newHistory = {
+              "complete": false,
+              "success": false,
+              "start_date": currentBackupStartDate, // ローカル変数を使用
+              "end_date":event.payload[1],
+              "total_files": 0,
+              "copied_files": 0,
+              "failed_files": 0,
+              "total_size_bytes": 0,
+              "duration_secs": 0,
+              "errors": event.payload[0],
+            };
+            const updatedList = [...prev, newHistory];
+            // 20件を超える場合は最初の要素を削除
+            return updatedList.length > 20 ? updatedList.slice(1) : updatedList;
+          })
+
           alert(`バックアップに失敗しました: ${event.payload}`)
         })
       } catch (err) {
@@ -153,7 +195,9 @@ export const NASProvider = ({ children }) => {
         setRequiredFreeSpace,
         isBackupRunning,
         backupProgress,
-        lastBackupDate
+        lastBackupDate,
+        historyList,
+        setHistoryList
       }}>
       {children}
     </NASContext.Provider>

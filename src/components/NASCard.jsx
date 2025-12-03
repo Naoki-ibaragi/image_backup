@@ -170,23 +170,6 @@ export default function NASCard({nas}) {
               </div>
             </div>
 
-            <div>
-              <p className="text-sm text-gray-400 mb-1">最終ファイル更新時刻</p>
-              <p className="text-black">{nas.lastReceived}</p>
-            </div>
-
-            <div className="border-t border-gray-700 pt-4">
-              <p className="text-sm text-gray-400 mb-2">ログ</p>
-              {nas.data ? (
-                <div className="bg-gray-900 p-3 rounded border border-gray-700">
-                  <pre className="text-sm text-green-400 font-mono overflow-y-auto max-h-20 whitespace-pre-wrap break-all">
-                    {JSON.stringify(nas.data, null, 2)}
-                  </pre>
-                </div>
-              ) : (
-                <p className="text-gray-500 italic">データなし</p>
-              )}
-            </div>
             {/* 情報編集ボタン */}
             <div className="border-t border-gray-700 pt-4">
               <button

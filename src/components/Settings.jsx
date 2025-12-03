@@ -24,7 +24,6 @@ function Settings() {
     const loadSettings = async () => {
       try {
         const settings = await invoke('get_settings')
-        console.log("settings",settings);
         setBackupStartTime(settings.backup_time)
         setSurfaceImageFolderPath(settings.surface_image_path)
         setBackImageFolderPath(settings.back_image_path)

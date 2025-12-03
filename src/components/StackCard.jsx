@@ -8,6 +8,7 @@ import Settings from "./Settings";
 import { useNASContext } from "../contexts/NASContext";
 import AddInspDialog from "./AddInspDialog";
 import AddNasDialog from "./AddNasDialog";
+import BackupHisotry from "./BackupHisotry";
 
 export default function StackCard() {
     const [loading, setLoading] = useState(true);
@@ -79,12 +80,14 @@ export default function StackCard() {
     //tab選択時のコールバック関数
     const switchTab=(e,tab_name)=>{
         e.preventDefault();
-        if(tab_name==="NAS" && (tab==="INSP" || tab==="SETTINGS")){
+        if(tab_name==="NAS" && (tab==="INSP" || tab==="SETTINGS" || tab==="HISTORY")){
             setTab("NAS");
-        }else if(tab_name==="INSP" && (tab==="NAS" || tab==="SETTINGS")){
+        }else if(tab_name==="INSP" && (tab==="NAS" || tab==="SETTINGS" || tab==="HISTORY")){
             setTab("INSP");
-        }else if(tab_name==="SETTINGS" && (tab==="NAS" || tab==="INSP")){
+        }else if(tab_name==="SETTINGS" && (tab==="NAS" || tab==="INSP" || tab==="HISTORY")){
             setTab("SETTINGS");
+        }else if(tab_name==="HISTORY" && (tab==="NAS" || tab==="INSP" || tab==="SETTINGS")){
+            setTab("HISTORY");
         }else{
             return;
         }
@@ -207,6 +210,19 @@ export default function StackCard() {
                             SETTINGS PAGE
                         </a>
                     </li>
+                    <li className="me-2">
+                        <a
+                            href="#"
+                            onClick={(e)=>switchTab(e,"HISTORY")}
+                            className={`inline-block p-4 border-b-2 transition-all duration-200 ${
+                                tab === "HISTORY PAGE"
+                                    ? "border-blue-600 text-blue-600 font-semibold bg-blue-50"
+                                    : "border-transparent text-gray-600 hover:text-blue-600 hover:bg-gray-100 hover:border-gray-300"
+                            }`}
+                        >
+                            HISTORY PAGE
+                        </a>
+                    </li>
                 </ul>
             </div>
             {/* メインコンテンツ */}
@@ -270,7 +286,7 @@ export default function StackCard() {
                         }
                         </div>
                     </>
-                ) : (
+                ) : tab==="SETTINGS" ?(
                     <>
                          <div className="flex items-center justify-between mb-4">
                             <div className="flex gap-4">
@@ -278,6 +294,15 @@ export default function StackCard() {
                             </div>
                         </div>
                         <Settings></Settings>
+                    </>
+                ):(
+                    <>
+                         <div className="flex items-center justify-between mb-4">
+                            <div className="flex gap-4">
+                                <h2 className="text-xl text-black font-semibold font-mono">バックアップ履歴</h2>
+                            </div>
+                        </div>
+                        <BackupHisotry></BackupHisotry>
                     </>
                 )}
             </main>
