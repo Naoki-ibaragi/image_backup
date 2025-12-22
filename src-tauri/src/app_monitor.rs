@@ -93,7 +93,8 @@ impl AppMonitor {
                 insp_config.insp_ip=new_insp_info.insp_ip.clone();
                 insp_config.surface_image_path=new_insp_info.surface_image_path.clone();
                 insp_config.back_image_path=new_insp_info.back_image_path.clone();
-                insp_config.result_path=new_insp_info.result_path.clone();
+                insp_config.surface_result_path=new_insp_info.surface_result_path.clone();
+                insp_config.back_result_path=new_insp_info.back_result_path.clone();
             }
         }
     }
@@ -121,7 +122,7 @@ impl AppMonitor {
     }
 
     ///メモリ上に検査機器を追加
-    pub async fn add_insp(&self,name:String,insp_ip:String,surface_image_path:String,back_image_path:String,result_path:String)->u32{
+    pub async fn add_insp(&self,name:String,insp_ip:String,surface_image_path:String,back_image_path:String,surface_result_path:String,back_result_path:String)->u32{
         let mut configs = self.insp_configs.write().await;
         //現在のidの最大値に+1したものを新しく追加する機器のidにする
         let new_id = configs.iter()
@@ -135,7 +136,8 @@ impl AppMonitor {
             insp_ip, 
             surface_image_path, 
             back_image_path, 
-            result_path, 
+            surface_result_path, 
+            back_result_path, 
             is_backup:true
         });
 
@@ -179,7 +181,8 @@ impl AppMonitor {
                 insp_ip: config.insp_ip.clone(),
                 surface_image_path: config.surface_image_path.clone(),
                 back_image_path: config.back_image_path.clone(),
-                result_path: config.result_path.clone(),
+                surface_result_path: config.surface_result_path.clone(),
+                back_result_path: config.back_result_path.clone(),
                 is_backup: config.is_backup,
             });
 

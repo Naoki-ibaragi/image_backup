@@ -11,7 +11,7 @@ use crate::app_monitor::{check_nas_connection};
 #[command]
 pub async fn init_info() -> Result<(Configs,SettingsConfig), String> {
     // 実行ファイルのディレクトリからconfig.jsonを読み込む
-    log::info!("config.jsonから初期設定読み込み");
+    log::info!("config.jsonから初期設定読み込み開始");
     let config_path = get_config_path()?;
 
     // デバッグ用: パスを出力
@@ -63,7 +63,8 @@ pub async fn init_info() -> Result<(Configs,SettingsConfig), String> {
             insp_ip:data.insp_ip,
             surface_image_path:data.surface_image_path,
             back_image_path:data.back_image_path,
-            result_path:data.result_path,
+            surface_result_path:data.surface_result_path,
+            back_result_path:data.back_result_path,
             is_backup:data.is_backup, //バックアップを実施するかどうか(config.jsonから読み込み)
         };
 
@@ -80,27 +81,40 @@ pub async fn save_settings(settings: SettingsConfig) -> Result<(), String> {
 
     // 既存のconfig.jsonを読み込む
     let config_content = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+        .map_err(|e| {
+            log::error!("Failed to read config file at {:?}: {}", config_path, e);
+            format!("Failed to read config file at {:?}: {}", config_path, e)
+        })?;
 
     // JSONとしてパース
     let mut value: Value = serde_json::from_str(&config_content)
-        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to parse config JSON: {}", e);
+            format!("Failed to parse config JSON: {}", e)
+        })?;
 
     // settings部分を更新
     value["settings"] = json!({
         "backup_time": settings.backup_time,
         "surface_image_path": settings.surface_image_path,
         "back_image_path": settings.back_image_path,
-        "result_file_path": settings.result_file_path,
+        "surface_result_file_path": settings.surface_result_file_path,
+        "back_result_file_path": settings.back_result_file_path,
         "required_free_space": settings.required_free_space,
     });
 
     // ファイルに書き込む（インデント付き）
     let updated_content = serde_json::to_string_pretty(&value)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to serialize config: {}", e);
+            format!("Failed to serialize config: {}", e)
+        })?;
 
     fs::write(&config_path, updated_content)
-        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+        .map_err(|e| {
+            log::error!("Failed to write config file at {:?}: {}", config_path, e);
+            format!("Failed to write config file at {:?}: {}", config_path, e)
+        })?;
 
     log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
@@ -113,15 +127,24 @@ pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), Strin
 
     // 既存のconfig.jsonを読み込む
     let config_content = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config file at {:?}: {}", config_path, e))?;
+        .map_err(|e| {
+            log::error!("Failed to read config file at {:?}: {}", config_path, e);
+            format!("Failed to read config file at {:?}: {}", config_path, e)
+        })?;
 
     // JSONとしてパース
     let mut value: Value = serde_json::from_str(&config_content)
-        .map_err(|e| format!("Failed to parse config JSON: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to parse config JSON: {}", e);
+            format!("Failed to parse config JSON: {}", e)
+        })?;
 
     //insp部分を取り出し
     let mut insp_info: InspInfos = serde_json::from_value(value["insp_units"].clone())
-    .map_err(|e| format!("Failed to parse nas_units: {}", e))?;
+    .map_err(|e| {
+        log::error!("Failed to parse nas_units: {}", e);
+        format!("Failed to parse nas_units: {}", e)
+    })?;
 
     if keyword=="edit"{
         //idが一致する情報を更新
@@ -131,7 +154,8 @@ pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), Strin
                 info.insp_ip=insp.insp_ip.clone();
                 info.surface_image_path=insp.surface_image_path.clone();
                 info.back_image_path=insp.back_image_path.clone();
-                info.result_path=insp.result_path.clone();
+                info.surface_result_path=insp.surface_result_path.clone();
+                info.back_result_path=insp.back_result_path.clone();
                 info.is_backup=insp.is_backup;
             }
         }
@@ -142,7 +166,8 @@ pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), Strin
         //該当idのinsp_infoを削除
         insp_info.insps.retain(|info| info.id != insp.id);
     }else{
-        return Err("keyword is not correct at save_insp_settings".into());
+        log::error!("keyword is not correct at save_insp_settings");
+        return Err("keyword is not correct at save_insp_settings".to_string());
     }
 
     value["insp_units"]["insps"] = json!(
@@ -151,10 +176,16 @@ pub async fn save_insp_settings(insp: InspInfo,keyword:&str) -> Result<(), Strin
 
     // ファイルに書き込む（インデント付き）
     let updated_content = serde_json::to_string_pretty(&value)
-        .map_err(|e| format!("Failed to serialize config: {}", e))?;
+        .map_err(|e| {
+            log::error!("Failed to serialize config: {}", e);
+            format!("Failed to serialize config: {}", e)
+        })?;
 
     fs::write(&config_path, updated_content)
-        .map_err(|e| format!("Failed to write config file at {:?}: {}", config_path, e))?;
+        .map_err(|e| {
+            log::error!("Failed to write config file at {:?}: {}", config_path, e);
+            format!("Failed to write config file at {:?}: {}", config_path, e)
+        })?;
 
     log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
@@ -193,7 +224,7 @@ pub async fn save_nas_settings(nas: NasInfo,keyword:&str) -> Result<(), String> 
         //該当idのnas_infoを削除
         nas_info.nass.retain(|info| info.id != nas.id);
     }else{
-        return Err("keyword is not correct at save_nas_settings".into());
+        return Err("keyword is not correct at save_nas_settings".to_string());
     }
 
     value["nas_units"]["nass"] = json!(
@@ -210,9 +241,6 @@ pub async fn save_nas_settings(nas: NasInfo,keyword:&str) -> Result<(), String> 
     log::info!("Settings saved successfully to {:?}", config_path);
     Ok(())
 }
-
-
-
 
 /// バックアップ設定の切り替えをconfig.jsonに保存
 #[command]
@@ -280,10 +308,35 @@ fn get_config_path()->Result<PathBuf,String>{
         // リリース時: 実行ファイルと同じディレクトリからconfig.jsonを読む
         let exe_path = std::env::current_exe()
             .map_err(|e| format!("Failed to get executable path: {}", e))?;
-        let mut config_path = exe_path.parent()
-            .ok_or("Failed to get parent directory")?
-            .to_path_buf();
+        let exe_dir = exe_path.parent()
+            .ok_or("Failed to get parent directory")?;
+
+        // まず実行ファイルと同じディレクトリを確認
+        let mut config_path = exe_dir.to_path_buf();
         config_path.push("config.json");
+
+        if config_path.exists() {
+            log::debug!("Config found at executable directory: {:?}", config_path);
+            return Ok(config_path);
+        }
+
+        // 見つからない場合はresourcesディレクトリを確認（Tauriバンドル用）
+        // Windowsの場合: exe_dir/../resources/config.json
+        let mut resource_path = exe_dir.to_path_buf();
+        resource_path.pop(); // 一つ上のディレクトリへ
+        resource_path.push("resources");
+        resource_path.push("config.json");
+
+        if resource_path.exists() {
+            log::debug!("Config found at resources directory: {:?}", resource_path);
+            return Ok(resource_path);
+        }
+
+        // どちらにも見つからない場合は実行ファイルと同じディレクトリのパスを返す
+        // （エラーメッセージで適切な場所を示すため）
+        config_path = exe_dir.to_path_buf();
+        config_path.push("config.json");
+        log::warn!("Config not found, returning default path: {:?}", config_path);
         Ok(config_path)
     }
 

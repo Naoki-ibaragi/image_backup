@@ -164,8 +164,13 @@ export default function INSPCard({insp}) {
             </div>
 
             <div>
-              <p className="text-sm text-gray-400 mb-1">Resultファイルフォルダパス</p>
-              <p className="text-black font-mono">{insp.result_path}</p>
+              <p className="text-sm text-gray-400 mb-1">表面Resultファイルフォルダパス</p>
+              <p className="text-black font-mono">{insp.surface_result_path}</p>
+            </div>
+
+            <div>
+              <p className="text-sm text-gray-400 mb-1">裏面Resultファイルフォルダパス</p>
+              <p className="text-black font-mono">{insp.back_result_path}</p>
             </div>
 
             {/* 情報編集ボタン */}

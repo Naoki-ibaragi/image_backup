@@ -60,14 +60,25 @@ impl SettingsMonitor {
         settings.back_image_path = path;
     }
 
-    /// 結果ファイルパスを取得
-    pub async fn get_result_file_path(&self) -> String {
-        self.settings.read().await.result_file_path.clone()
+    /// 表面結果ファイルパスを取得
+    pub async fn get_surface_result_file_path(&self) -> String {
+        self.settings.read().await.surface_result_file_path.clone()
     }
 
-    /// 結果ファイルパスを更新
-    pub async fn set_result_file_path(&self, path: String) {
+    /// 裏面結果ファイルパスを取得
+    pub async fn get_back_result_file_path(&self) -> String {
+        self.settings.read().await.back_result_file_path.clone()
+    }
+
+    /// 表面結果ファイルパスを更新
+    pub async fn set_surface_result_file_path(&self, path: String) {
         let mut settings = self.settings.write().await;
-        settings.result_file_path = path;
+        settings.surface_result_file_path = path;
+    }
+
+    /// 裏面結果ファイルパスを更新
+    pub async fn set_back_result_file_path(&self, path: String) {
+        let mut settings = self.settings.write().await;
+        settings.back_result_file_path = path;
     }
 }

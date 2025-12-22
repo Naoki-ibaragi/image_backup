@@ -20,7 +20,8 @@ pub struct InspInfo {
     pub insp_ip: String,
     pub surface_image_path: String,
     pub back_image_path: String,
-    pub result_path: String,
+    pub surface_result_path: String,
+    pub back_result_path: String,
     #[serde(default = "default_is_backup")]
     pub is_backup: bool,
 }
@@ -69,9 +70,10 @@ pub struct InspConfig {
     pub id: u32,
     pub name: String,
     pub insp_ip: String,
-    pub surface_image_path: String,     //
-    pub back_image_path: String,     //
-    pub result_path: String,
+    pub surface_image_path: String,     
+    pub back_image_path: String,     
+    pub surface_result_path: String,
+    pub back_result_path: String,
     pub is_backup: bool,
 }
 
@@ -81,7 +83,8 @@ pub struct SettingsConfig{
     pub backup_time:String,
     pub surface_image_path:String,
     pub back_image_path:String,
-    pub result_file_path:String,
+    pub surface_result_file_path:String,
+    pub back_result_file_path:String,
     pub required_free_space:u64
 }
 

@@ -12,8 +12,10 @@ function Settings() {
     setSurfaceImageFolderPath,
     backImageFolderPath,
     setBackImageFolderPath,
-    resultFolderPath,
-    setResultFolderPath,
+    surfaceResultFolderPath,
+    setSurfaceResultFolderPath,
+    backResultFolderPath,
+    setBackResultFolderPath,
     isBackupRunning,
     requiredFreeSpace,
     setRequiredFreeSpace,
@@ -27,7 +29,8 @@ function Settings() {
         setBackupStartTime(settings.backup_time)
         setSurfaceImageFolderPath(settings.surface_image_path)
         setBackImageFolderPath(settings.back_image_path)
-        setResultFolderPath(settings.result_file_path)
+        setSurfaceResultFolderPath(settings.surface_result_file_path)
+        setBackResultFolderPath(settings.back_result_file_path)
         setRequiredFreeSpace(settings.required_free_space)
       } catch (error) {
         console.error('設定の読み込みに失敗しました:', error)
@@ -43,7 +46,8 @@ function Settings() {
         backup_time: backupStartTime,
         surface_image_path: surfaceImageFolderPath,
         back_image_path: backImageFolderPath,
-        result_file_path: resultFolderPath,
+        surface_result_file_path: surfaceResultFolderPath,
+        back_result_file_path: backResultFolderPath,
         required_free_space:parseInt(requiredFreeSpace),
       }
 
@@ -113,15 +117,30 @@ function Settings() {
           />
         </div>
 
-        {/* NASフォルダパス-Resultファイル */}
+        {/* NASフォルダパス-表面Resultファイル */}
         <div className="space-y-2">
           <label className="block text-sm font-semibold text-gray-700">
-            NASフォルダパス - Resultファイル
+            NASフォルダパス - 表面Resultファイル
           </label>
           <input
             type="text"
-            value={resultFolderPath}
-            onChange={(e) => setResultFolderPath(e.target.value)}
+            value={surfaceResultFolderPath}
+            onChange={(e) => setSurfaceResultFolderPath(e.target.value)}
+            disabled={isBackupRunning}
+            placeholder="例: \\192.168.1.100\results"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"
+          />
+        </div>
+
+        {/* NASフォルダパス-裏面Resultファイル */}
+        <div className="space-y-2">
+          <label className="block text-sm font-semibold text-gray-700">
+            NASフォルダパス - 裏面Resultファイル
+          </label>
+          <input
+            type="text"
+            value={backResultFolderPath}
+            onChange={(e) => setBackResultFolderPath(e.target.value)}
             disabled={isBackupRunning}
             placeholder="例: \\192.168.1.100\results"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-gray-900 placeholder-gray-400 disabled:bg-gray-100 disabled:cursor-not-allowed"

@@ -11,6 +11,30 @@ use walkdir::WalkDir;
 const MAX_RETRIES: u32 = 3;
 const RETRY_DELAY_SECS: u64 = 5;
 
+/// バックアップエラーの種類
+#[derive(Debug)]
+pub enum BackupError {
+    /// NASの容量不足エラー
+    DiskFull(String),
+    /// その他の一般的なエラー
+    General(String),
+}
+
+impl std::fmt::Display for BackupError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BackupError::DiskFull(msg) => write!(f, "DiskFull: {}", msg),
+            BackupError::General(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl From<BackupError> for String {
+    fn from(error: BackupError) -> Self {
+        error.to_string()
+    }
+}
+
 /// バックアップ実行を担当する構造体
 pub struct BackupExecutor;
 
@@ -45,10 +69,12 @@ impl BackupExecutor {
             .collect();
 
         if active_nas_configs.is_empty() {
+            log::error!("利用可能なNASがありません");
             return Err("利用可能なNASがありません".to_string());
         }
 
         if active_insp_configs.is_empty() {
+            log::error!("バックアップ対象の検査機器がありません");
             return Err("バックアップ対象の検査機器がありません".to_string());
         }
 
@@ -99,14 +125,22 @@ impl BackupExecutor {
                 &settings.surface_image_path,
                 &insp_config.name,
             );
+
             let nas_back_image_map = Self::collect_all_nas_folder_data(
                 &active_nas_configs,
                 &settings.back_image_path,
                 &insp_config.name,
             );
-            let nas_result_file_map = Self::collect_all_nas_folder_data(
+
+            let nas_surface_result_file_map = Self::collect_all_nas_folder_data(
                 &active_nas_configs,
-                &settings.result_file_path,
+                &settings.surface_result_file_path,
+                &insp_config.name,
+            );
+
+            let nas_back_result_file_map = Self::collect_all_nas_folder_data(
+                &active_nas_configs,
+                &settings.back_result_file_path,
                 &insp_config.name,
             );
 
@@ -114,10 +148,10 @@ impl BackupExecutor {
             loop {
                 // NAS容量チェック
                 if nas_index >= active_nas_configs.len() {
-                    return Err(format!(
-                        "すべてのNASで容量不足です。バックアップを中断しました。(検査機器: {})",
-                        insp_config.name
-                    ));
+                    log::error!("すべてのNASで容量不足です。バックアップを中断しました。(検査機器: {})",insp_config.name);
+                    return Err(
+                        format!("すべてのNASで容量不足です。バックアップを中断しました。(検査機器: {})",insp_config.name)
+                    );
                 }
 
                 let nas_config = active_nas_configs[nas_index];
@@ -135,16 +169,19 @@ impl BackupExecutor {
                     continue; // 次のNASへ
                 }
 
+                let mut disk_full_occurred = false;
+
                 // 表面画像のバックアップ（差分のみ）
-                if !insp_config.surface_image_path.is_empty() {
+                if !disk_full_occurred && !insp_config.surface_image_path.is_empty() {
                     match Self::backup_folder_with_diff(
                         &insp_config.insp_ip,
                         &insp_config.surface_image_path,
-                        &nas_config.drive,
+                        nas_config,
                         &settings.surface_image_path,
                         &insp_config.name,
                         "表面画像",
                         &nas_surface_image_map,
+                        settings.required_free_space,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -152,6 +189,10 @@ impl BackupExecutor {
                             copied_files += stats.1;
                             failed_files += stats.2;
                             total_size += stats.3;
+                        }
+                        Err(BackupError::DiskFull(msg)) => {
+                            log::warn!("  表面画像のバックアップ中にNAS容量不足を検知: {}", msg);
+                            disk_full_occurred = true;
                         }
                         Err(e) => {
                             errors.push(format!("{} - 表面画像: {}", insp_config.name, e));
@@ -160,15 +201,16 @@ impl BackupExecutor {
                 }
 
                 // 裏面画像のバックアップ（差分のみ）
-                if !insp_config.back_image_path.is_empty() {
+                if !disk_full_occurred && !insp_config.back_image_path.is_empty() {
                     match Self::backup_folder_with_diff(
                         &insp_config.insp_ip,
                         &insp_config.back_image_path,
-                        &nas_config.drive,
+                        nas_config,
                         &settings.back_image_path,
                         &insp_config.name,
                         "裏面画像",
                         &nas_back_image_map,
+                        settings.required_free_space,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -176,6 +218,10 @@ impl BackupExecutor {
                             copied_files += stats.1;
                             failed_files += stats.2;
                             total_size += stats.3;
+                        }
+                        Err(BackupError::DiskFull(msg)) => {
+                            log::warn!("  裏面画像のバックアップ中にNAS容量不足を検知: {}", msg);
+                            disk_full_occurred = true;
                         }
                         Err(e) => {
                             errors.push(format!("{} - 裏面画像: {}", insp_config.name, e));
@@ -183,16 +229,17 @@ impl BackupExecutor {
                     }
                 }
 
-                // 結果ファイルのバックアップ（差分のみ）
-                if !insp_config.result_path.is_empty() {
+                // 表面結果ファイルのバックアップ（差分のみ）
+                if !disk_full_occurred && !insp_config.surface_result_path.is_empty() {
                     match Self::backup_folder_with_diff(
                         &insp_config.insp_ip,
-                        &insp_config.result_path,
-                        &nas_config.drive,
-                        &settings.result_file_path,
+                        &insp_config.surface_result_path,
+                        nas_config,
+                        &settings.surface_result_file_path,
                         &insp_config.name,
                         "結果ファイル",
-                        &nas_result_file_map,
+                        &nas_surface_result_file_map,
+                        settings.required_free_space,
                         &app_handle,
                     ).await {
                         Ok(stats) => {
@@ -201,10 +248,50 @@ impl BackupExecutor {
                             failed_files += stats.2;
                             total_size += stats.3;
                         }
+                        Err(BackupError::DiskFull(msg)) => {
+                            log::warn!("  表面結果ファイルのバックアップ中にNAS容量不足を検知: {}", msg);
+                            disk_full_occurred = true;
+                        }
                         Err(e) => {
                             errors.push(format!("{} - 結果ファイル: {}", insp_config.name, e));
                         }
                     }
+                }
+
+                // 裏面結果ファイルのバックアップ（差分のみ）
+                if !disk_full_occurred && !insp_config.back_result_path.is_empty() {
+                    match Self::backup_folder_with_diff(
+                        &insp_config.insp_ip,
+                        &insp_config.back_result_path,
+                        nas_config,
+                        &settings.back_result_file_path,
+                        &insp_config.name,
+                        "結果ファイル",
+                        &nas_back_result_file_map,
+                        settings.required_free_space,
+                        &app_handle,
+                    ).await {
+                        Ok(stats) => {
+                            total_files += stats.0;
+                            copied_files += stats.1;
+                            failed_files += stats.2;
+                            total_size += stats.3;
+                        }
+                        Err(BackupError::DiskFull(msg)) => {
+                            log::warn!("  裏面結果ファイルのバックアップ中にNAS容量不足を検知: {}", msg);
+                            disk_full_occurred = true;
+                        }
+                        Err(e) => {
+                            errors.push(format!("{} - 結果ファイル: {}", insp_config.name, e));
+                        }
+                    }
+                }
+
+                // DiskFullエラーが発生した場合は次のNASに切り替え
+                if disk_full_occurred {
+                    log::info!("  NAS {} が満杯になったため、次のNASに切り替えます", nas_config.name);
+                    nas_index += 1;
+                    continue; // 次のNASへ
                 }
 
                 // このNASへのバックアップ成功、次の検査機器へ
@@ -311,13 +398,14 @@ impl BackupExecutor {
     async fn backup_folder_with_diff(
         insp_ip: &str,
         source_relative_path: &str,
-        nas_drive: &str,
+        nas_config: &NasConfig,
         nas_base_path: &str,
         device_name: &str,
         category: &str,
         existing_folders: &HashMap<String, u32>,
+        required_free_space: u64,
         app_handle: &AppHandle,
-    ) -> Result<(u64, u64, u64, u64), String> {
+    ) -> Result<(u64, u64, u64, u64), BackupError> {
         // 検査機器側のソースパスを構築
         // source_relative_pathの先頭の/や\を取り除く
         let clean_relative_path = source_relative_path
@@ -329,7 +417,7 @@ impl BackupExecutor {
         source_path.push(clean_relative_path);
 
         // NAS側のコピー先パスを取得
-        let dest_path = Self::build_dest_path(nas_drive, nas_base_path, device_name);
+        let dest_path = Self::build_dest_path(&nas_config.drive, nas_base_path, device_name);
 
         log::debug!("insp_ip(コピー元IP): {}", insp_ip);
         log::debug!("コピー元パス: {}", source_path.display());
@@ -344,11 +432,11 @@ impl BackupExecutor {
         let entries = match fs::read_dir(&source_path) {
             Ok(entries) => entries,
             Err(e) => {
-                return Err(format!(
+                return Err(BackupError::General(format!(
                     "コピー元パス読み込みエラー {}: {}",
                     source_path.display(),
                     e
-                ));
+                )));
             }
         };
 
@@ -379,7 +467,7 @@ impl BackupExecutor {
             }
 
             // entry単位でコピーする
-            match Self::copy_with_retry(&entry, &dest_path, device_name, category, app_handle).await
+            match Self::copy_with_retry(&entry, &dest_path, device_name, category, nas_config, required_free_space, app_handle).await
             {
                 Ok(stats) => {
                     total_files += stats.0;
@@ -388,6 +476,10 @@ impl BackupExecutor {
                     total_size += stats.3;
                 }
                 Err(e) => {
+                    // DiskFullエラーの場合はすぐに上位に伝播
+                    if matches!(e, BackupError::DiskFull(_)) {
+                        return Err(e);
+                    }
                     failed_files += 1;
                     log::error!(
                         "フォルダコピー失敗: {} - {}",
@@ -442,8 +534,22 @@ impl BackupExecutor {
         dest: &str,
         device_name: &str,
         category: &str,
+        nas_config: &NasConfig,
+        required_free_space: u64,
         app_handle: &AppHandle,
-    ) -> Result<(u64, u64, u64, u64), String> {
+    ) -> Result<(u64, u64, u64, u64), BackupError> {
+        // NAS容量チェック（コピー前に毎回確認）
+        if nas_config.free_space < required_free_space {
+            let error_msg = format!(
+                "NAS {} の空き容量不足: {} < {} (required)",
+                nas_config.name,
+                nas_config.free_space,
+                required_free_space
+            );
+            log::warn!("{}", error_msg);
+            return Err(BackupError::DiskFull(error_msg));
+        }
+
         let mut last_error = String::new();
 
         for attempt in 1..=MAX_RETRIES {
@@ -469,7 +575,7 @@ impl BackupExecutor {
             }
         }
 
-        Err(format!("{}回のリトライ後も失敗: {}", MAX_RETRIES, last_error))
+        Err(BackupError::General(format!("{}回のリトライ後も失敗: {}", MAX_RETRIES, last_error)))
     }
 
     /// ディレクトリを再帰的にコピー
@@ -493,7 +599,13 @@ impl BackupExecutor {
         fs::create_dir_all(&dest_path)
             .map_err(|e| format!("ディレクトリ作成エラー {}: {}", dest_path.display(), e))?;
 
-        let mut total_files = 0u64;
+        // フォルダ内の総ファイル数を事前にカウント
+        let total_file_count = WalkDir::new(entry.path())
+            .into_iter()
+            .filter_map(|e| e.ok())
+            .filter(|e| e.metadata().map(|m| m.is_file()).unwrap_or(false))
+            .count() as u64;
+
         let mut copied_files = 0u64;
         let mut failed_files = 0u64;
         let mut total_size = 0u64;
@@ -505,13 +617,13 @@ impl BackupExecutor {
             device_name,
             category,
             app_handle,
-            &mut total_files,
+            total_file_count,
             &mut copied_files,
             &mut failed_files,
             &mut total_size,
         )?;
 
-        Ok((total_files, copied_files, failed_files, total_size))
+        Ok((total_file_count, copied_files, failed_files, total_size))
     }
 
     /// ディレクトリを再帰的にコピー（内部実装）
@@ -521,7 +633,7 @@ impl BackupExecutor {
         device_name: &str,
         category: &str,
         app_handle: &AppHandle,
-        total_files: &mut u64,
+        total_file_count: u64,
         copied_files: &mut u64,
         failed_files: &mut u64,
         total_size: &mut u64,
@@ -548,32 +660,34 @@ impl BackupExecutor {
                         device_name,
                         category,
                         app_handle,
-                        total_files,
+                        total_file_count,
                         copied_files,
                         failed_files,
                         total_size,
                     )?;
                 } else {
-                    *total_files += 1;
-
                     // ファイルコピー
                     match fs::copy(&source_path, &dest_path) {
                         Ok(size) => {
                             *copied_files += 1;
                             *total_size += size;
 
-                            // 進捗を通知
-                            let progress = BackupProgress {
-                                current_files: *copied_files,
-                                total_files: *total_files,
-                                current_size: *total_size,
-                                total_size: *total_size,
-                                percentage: (*copied_files as f32 / *total_files as f32) * 100.0,
-                                current_file: file_name.to_string_lossy().to_string(),
-                                current_device: format!("{} - {}", device_name, category),
-                            };
+                            // 進捗を通知（100ファイルに1回）
+                            if *copied_files % 100 == 0 {
+                                let progress = BackupProgress {
+                                    current_files: *copied_files,
+                                    total_files: total_file_count,
+                                    current_size: *total_size,
+                                    total_size: *total_size,
+                                    percentage: (*copied_files as f32 / total_file_count as f32) * 100.0,
+                                    current_file: source_path.to_string_lossy().to_string(),
+                                    current_device: format!("{} - {}", device_name, category),
+                                };
 
-                            let _ = app_handle.emit("backup-progress", progress);
+                                let _ = app_handle.emit("backup-progress", progress);
+                            }
+
+                            log::info!("Backup file : {}",&source_path.to_string_lossy().to_string());
                         }
                         Err(e) => {
                             *failed_files += 1;

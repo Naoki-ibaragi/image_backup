@@ -149,7 +149,8 @@ async fn add_insp_configs(
     insp_ip:String,
     surface_image_path:String,
     back_image_path:String,
-    result_path:String
+    surface_result_path:String,
+    back_result_path:String
 ) -> Result<Vec<InspConfig>, String> {
     // バックアップ中は設定変更を拒否
     if scheduler.is_backup_running().await {
@@ -157,14 +158,14 @@ async fn add_insp_configs(
     }
 
     // メモリ上の設定を更新
-    let new_id=app_monitor.add_insp(name.clone(),insp_ip.clone(),surface_image_path.clone(),back_image_path.clone(),result_path.clone()).await;
+    let new_id=app_monitor.add_insp(name.clone(),insp_ip.clone(),surface_image_path.clone(),back_image_path.clone(),surface_result_path.clone(),back_result_path.clone()).await;
 
     // 更新後のメモリ上の設定を取得
     let insp_configs = app_monitor.get_insp_configs().await;
 
     // メモリ上の更新が成功したらメモリの内容をファイルに保存
     //save_insp_settingsに渡すためにInspInfoを作成
-    let add_insp_info:InspInfo=InspInfo { id: new_id, name, insp_ip, surface_image_path, back_image_path, result_path, is_backup:true };
+    let add_insp_info:InspInfo=InspInfo { id: new_id, name, insp_ip, surface_image_path, back_image_path, surface_result_path,back_result_path, is_backup:true };
     save_insp_settings(add_insp_info,"add").await?;
 
     log::debug!("{:?}",insp_configs);
@@ -303,7 +304,7 @@ fn main() {
             ])
             .rotation_strategy(tauri_plugin_log::RotationStrategy::KeepAll)
             .timezone_strategy(tauri_plugin_log::TimezoneStrategy::UseLocal)
-            .level(log::LevelFilter::Debug)
+            .level(log::LevelFilter::Info)
             .build(),
     )
     .setup(|app|{

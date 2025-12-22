@@ -7,35 +7,9 @@
         "insp_ip": "192.168.0.151",
         "is_backup": true,
         "name": "TEST",
-        "result_path": "/share/result",
+        "surface_result_path": "/share/result/surface",
+        "back_result_path": "/share/result/back",
         "surface_image_path": "/share/jpg/surface"
-      },
-      {
-        "back_image_path": "/home/image",
-        "id": 3,
-        "insp_ip": "127.0.0.1",
-        "is_backup": true,
-        "name": "CLT7",
-        "result_path": "/home/result",
-        "surface_image_path": "/home/image"
-      },
-      {
-        "back_image_path": "/home/usr/jpg/back",
-        "id": 4,
-        "insp_ip": "192.168.0.101",
-        "is_backup": true,
-        "name": "CLT8",
-        "result_path": "/home/usr/result",
-        "surface_image_path": "/home/usr/jpg/surface"
-      },
-      {
-        "back_image_path": "/home/usr/jpg/back",
-        "id": 5,
-        "insp_ip": "192.168.0.103",
-        "is_backup": true,
-        "name": "TR3",
-        "result_path": "/home/usr/result",
-        "surface_image_path": "/home/usr/jpg/surface"
       }
     ]
   },
@@ -65,7 +39,8 @@
     "back_image_path": "/jpg/back",
     "backup_time": "17:14",
     "required_free_space": 20,
-    "result_file_path": "/result",
+    "surface_result_file_path": "/result",
+    "back_result_file_path": "/result",
     "surface_image_path": "/jpg/surface"
   }
 }

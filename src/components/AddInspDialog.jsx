@@ -15,7 +15,8 @@ export default function AddInspDialog({ isOpen, onClose}) {
     insp_ip: "",
     surface_image_path: "",
     back_image_path: "",
-    result_path: "",
+    surface_result_path: "",
+    back_result_path: "",
     is_backup: true,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,7 +35,8 @@ export default function AddInspDialog({ isOpen, onClose}) {
             inspIp:formData.insp_ip,
             surfaceImagePath:formData.surface_image_path,
             backImagePath:formData.back_image_path,
-            resultPath:formData.result_path
+            surfaceResultPath:formData.surface_result_path,
+            backResultPath:formData.back_result_path
           });
         console.log("backend_insp_configs",backend_insp_configs);
 
@@ -127,11 +129,23 @@ export default function AddInspDialog({ isOpen, onClose}) {
             </div>
 
             <div>
-                <label className="block text-sm text-gray-700 mb-1">外観検査resultファイルフォルダパス</label>
+                <label className="block text-sm text-gray-700 mb-1">表面外観検査resultファイルフォルダパス</label>
                 <input
                 type="text"
-                value={formData.result_path}
-                onChange={(e) => setFormData({ ...formData, result_path: e.target.value })}
+                value={formData.surface_result_path}
+                onChange={(e) => setFormData({ ...formData, surface_result_path: e.target.value })}
+                className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                placeholder="/home/usr/result"
+                required
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm text-gray-700 mb-1">裏面外観検査resultファイルフォルダパス</label>
+                <input
+                type="text"
+                value={formData.back_result_path}
+                onChange={(e) => setFormData({ ...formData, back_result_path: e.target.value })}
                 className="w-full px-3 py-2 bg-gray-100 text-black rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 placeholder="/home/usr/result"
                 required

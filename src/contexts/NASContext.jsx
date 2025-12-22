@@ -27,7 +27,8 @@ export const NASProvider = ({ children }) => {
   const [backupStartTime, setBackupStartTime] = useState('00:00'); //バックアップ時刻設定
   const [surfaceImageFolderPath, setSurfaceImageFolderPath] = useState(''); //NAS内表面画像保存パス設定
   const [backImageFolderPath, setBackImageFolderPath] = useState(''); //NAS内裏面画像保存パス設定
-  const [resultFolderPath, setResultFolderPath] = useState(''); //検査結果保存パス設定
+  const [surfaceResultFolderPath, setSurfaceResultFolderPath] = useState(''); //表面検査結果保存パス設定
+  const [backResultFolderPath, setBackResultFolderPath] = useState(''); //裏面検査結果保存パス設定
   const [requiredFreeSpace, setRequiredFreeSpace] = useState(0); //バックアップ開始時最低限必要な容量
   const [historyList,setHistoryList]=useState([]); //バックアップ処理履歴
 
@@ -189,8 +190,10 @@ export const NASProvider = ({ children }) => {
         setSurfaceImageFolderPath,
         backImageFolderPath,
         setBackImageFolderPath,
-        resultFolderPath,
-        setResultFolderPath,
+        surfaceResultFolderPath,
+        setSurfaceResultFolderPath,
+        backResultFolderPath,
+        setBackResultFolderPath,
         requiredFreeSpace,
         setRequiredFreeSpace,
         isBackupRunning,
