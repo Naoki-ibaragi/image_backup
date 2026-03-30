@@ -242,14 +242,14 @@ fn check_device_connection(device_ip: &str) -> bool {
 }
 
 /// ドライブの容量情報
-struct DriveSpaceInfo {
-    total: u64,
-    used: u64,
-    free: u64,
+pub struct DriveSpaceInfo {
+    pub total: u64,
+    pub used: u64,
+    pub free: u64,
 }
 
 /// ドライブの容量情報を取得
-fn get_drive_space_info(drive_letter: &str) -> Result<DriveSpaceInfo, String> {
+pub fn get_drive_space_info(drive_letter: &str) -> Result<DriveSpaceInfo, String> {
     // ドライブレターを正規化（例: "P:" -> "P:\\"）
     let drive_path = if drive_letter.ends_with(":\\") {
         drive_letter.to_string()
@@ -295,6 +295,7 @@ fn get_drive_space_info(drive_letter: &str) -> Result<DriveSpaceInfo, String> {
 fn get_drive_space_info_windows(drive_path: &str) -> Result<DriveSpaceInfo, String> {
     use windows::core::PCWSTR;
     use windows::Win32::Storage::FileSystem::GetDiskFreeSpaceExW;
+    use windows::Win32::Foundation::GetLastError;
 
     // drive_pathを"P:\\"のような形式にする
     let path: Vec<u16> = drive_path.encode_utf16().chain(std::iter::once(0)).collect();
@@ -314,13 +315,30 @@ fn get_drive_space_info_windows(drive_path: &str) -> Result<DriveSpaceInfo, Stri
         if result.is_ok() {
             let used = total_bytes.saturating_sub(total_free_bytes);
 
+            log::info!(
+                "Drive {} - Total: {} GB, Used: {} GB, Free: {} GB",
+                drive_path,
+                total_bytes / (1024 * 1024 * 1024),
+                used / (1024 * 1024 * 1024),
+                total_free_bytes / (1024 * 1024 * 1024)
+            );
+
             Ok(DriveSpaceInfo {
                 total: total_bytes,
                 used,
                 free: total_free_bytes,
             })
         } else {
-            Err(format!("Failed to get disk space info for drive {}", drive_path))
+            let error_code = GetLastError();
+            log::error!(
+                "GetDiskFreeSpaceExW failed for drive {}: Error code {:?}",
+                drive_path,
+                error_code
+            );
+            Err(format!(
+                "Failed to get disk space info for drive {}: Error code {:?}",
+                drive_path, error_code
+            ))
         }
     }
 }

@@ -39,8 +39,8 @@
     "back_image_path": "/jpg/back",
     "backup_time": "17:14",
     "required_free_space": 20,
-    "surface_result_file_path": "/result",
-    "back_result_file_path": "/result",
+    "surface_result_file_path": "/result/surface",
+    "back_result_file_path": "/result/back",
     "surface_image_path": "/jpg/surface"
   }
 }

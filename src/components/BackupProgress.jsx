@@ -41,14 +41,14 @@ function BackupProgress() {
             {/* 詳細情報 */}
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-600">処理ファイル数</span>
+                <span className="text-gray-600">フォルダ単位処理ファイル数</span>
                 <span className="font-semibold text-gray-900">
                   {backupProgress.current_files} / {backupProgress.total_files}
                 </span>
               </div>
 
               <div className="flex justify-between">
-                <span className="text-gray-600">データサイズ</span>
+                <span className="text-gray-600">フォルダ単位転送済データ量</span>
                 <span className="font-semibold text-gray-900">
                   {formatBytes(backupProgress.current_size)}
                 </span>

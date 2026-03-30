@@ -47,7 +47,8 @@ export default function StackCard() {
                     insp_ip: config.insp_ip,
                     surface_image_path: config.surface_image_path,
                     back_image_path: config.back_image_path,
-                    result_path: config.result_path,
+                    surface_result_path: config.surface_result_path,
+                    back_result_path: config.back_result_path,
                     is_backup: config.is_backup,            //転送実施するかどうか
                     lastBackuped: "-",
                 }));

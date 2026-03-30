@@ -5,6 +5,7 @@ use std::time::Instant;
 use tauri::{AppHandle, Emitter};
 use tokio::time::{sleep, Duration};
 use crate::types::{InspConfig, NasConfig, SettingsConfig, BackupResult, BackupProgress};
+use crate::app_monitor::get_drive_space_info;
 use std::collections::HashMap;
 use walkdir::WalkDir;
 
@@ -237,7 +238,7 @@ impl BackupExecutor {
                         nas_config,
                         &settings.surface_result_file_path,
                         &insp_config.name,
-                        "結果ファイル",
+                        "表面結果ファイル",
                         &nas_surface_result_file_map,
                         settings.required_free_space,
                         &app_handle,
@@ -266,7 +267,7 @@ impl BackupExecutor {
                         nas_config,
                         &settings.back_result_file_path,
                         &insp_config.name,
-                        "結果ファイル",
+                        "裏面結果ファイル",
                         &nas_back_result_file_map,
                         settings.required_free_space,
                         &app_handle,
@@ -538,12 +539,15 @@ impl BackupExecutor {
         required_free_space: u64,
         app_handle: &AppHandle,
     ) -> Result<(u64, u64, u64, u64), BackupError> {
-        // NAS容量チェック（コピー前に毎回確認）
-        if nas_config.free_space < required_free_space {
+        // NAS容量チェック（コピー前にリアルタイムで確認）
+        let current_free = get_drive_space_info(&nas_config.drive)
+            .map(|info| info.free)
+            .unwrap_or(nas_config.free_space); // 取得失敗時はキャッシュ値で代替
+        if current_free < required_free_space {
             let error_msg = format!(
                 "NAS {} の空き容量不足: {} < {} (required)",
                 nas_config.name,
-                nas_config.free_space,
+                current_free,
                 required_free_space
             );
             log::warn!("{}", error_msg);
@@ -672,8 +676,14 @@ impl BackupExecutor {
                             *copied_files += 1;
                             *total_size += size;
 
-                            // 進捗を通知（100ファイルに1回）
-                            if *copied_files % 100 == 0 {
+                            // 進捗を通知（結果ファイルは1回ごと、画像は100ファイルに1回）
+                            let should_report = if category.contains("結果ファイル") {
+                                true  // 結果ファイルは毎回報告
+                            } else {
+                                *copied_files % 100 == 0  // 画像は100ファイルに1回
+                            };
+
+                            if should_report {
                                 let progress = BackupProgress {
                                     current_files: *copied_files,
                                     total_files: total_file_count,
